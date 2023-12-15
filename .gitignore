@@ -1,0 +1,5 @@
+.env.local
+vendor
+.vscode
+database/*
+uploads/photos/*
