@@ -13,20 +13,20 @@ const (
 
 type Assessment struct {
 	BaseModel
-	Direction Direction   `json:"questionnaire_direction"`
-	Message   null.String `json:"message"`
-	Decision  Decision    `json:"decision"`
+	UsersDirection Direction   `json:"users_direction"`
+	Message        null.String `json:"message"`
+	Decision       Decision    `json:"decision"`
 }
 
 // GetFieldPointers реализует интерфейс Model
 func (a *Assessment) GetFieldPointers() []interface{} {
-	fields := append(a.BaseModel.GetFieldPointers(), a.Direction.GetFieldPointers()...)
+	fields := append(a.BaseModel.GetFieldPointers(), a.UsersDirection.GetFieldPointers()...)
 
 	return append(fields, &a.Message, &a.Decision)
 }
 
 func (a *Assessment) Validate() error {
-	err := a.Direction.Validate()
+	err := a.UsersDirection.Validate()
 
 	return err
 }

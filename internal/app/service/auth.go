@@ -25,31 +25,6 @@ func newAuthService(cfg *app.Config, userRepository repository.UserRepository) *
 	}
 }
 
-func (as *AuthService) Register(login string, password model.Password) error {
-	hasUser, err := as.userRepository.HasByLogin(login)
-	if err != nil {
-		return err
-	}
-	if hasUser {
-		return fmt.Errorf("пользователь с логином \"%s\" уже существует", login)
-	}
-
-	if err := password.Validate(); err != nil {
-		return err
-	}
-
-	u := model.NewUser()
-	u.Login = login
-	u.PasswordHash, err = password.GetHash()
-	if err != nil {
-		return err
-	}
-
-	err = as.userRepository.Add(u)
-
-	return err
-}
-
 func (as *AuthService) Authenticate(login string, password model.Password) (string, error) {
 	u, err := as.userRepository.GetByLogin(login)
 	if err != nil {

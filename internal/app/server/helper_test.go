@@ -71,6 +71,16 @@ func TestGetIntQueryParam(t *testing.T) {
 			},
 			10,
 		},
+		{
+			"Max limit is not specified",
+			args{
+				query:     url.Values{"param": []string{"999999"}},
+				key:       "param",
+				byDefault: 0,
+				max:       0,
+			},
+			999999,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

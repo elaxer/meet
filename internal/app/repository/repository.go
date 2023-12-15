@@ -15,6 +15,7 @@ var (
 
 type RepositoryContainer struct {
 	assessmentRepository    AssessmentRepository
+	messageRepository       MessageRepository
 	photoRepository         PhotoRepository
 	questionnaireRepository QuestionnaireRepository
 	userRepository          UserRepository
@@ -34,6 +35,10 @@ func NewRepositoryContainer(db *sql.DB) *RepositoryContainer {
 
 func (rc *RepositoryContainer) Assessment() AssessmentRepository {
 	return rc.assessmentRepository
+}
+
+func (rc *RepositoryContainer) Message() MessageRepository {
+	return rc.messageRepository
 }
 
 func (rc *RepositoryContainer) Photo() PhotoRepository {

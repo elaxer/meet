@@ -31,8 +31,8 @@ func (ar *assessmentDBRepository) HasByDirection(direction model.Direction) (boo
 	sql, args := sb.
 		Select("1").
 		From(assessmentTableName).
-		Where(sb.Equal("from_questionnaire_id", direction.FromID)).
-		Where(sb.Equal("to_questionnaire_id", direction.ToID)).
+		Where(sb.Equal("from_user_id", direction.FromID)).
+		Where(sb.Equal("to_user_id", direction.ToID)).
 		Limit(1).
 		Build()
 
@@ -54,8 +54,8 @@ func (ar *assessmentDBRepository) Add(assessment *model.Assessment) error {
 	ib := sqlbuilder.NewInsertBuilder()
 	sql, args := ib.
 		InsertInto(assessmentTableName).
-		Cols("from_questionnaire_id", "to_questionnaire_id", "message", "decision").
-		Values(assessment.Direction.FromID, assessment.Direction.ToID, assessment.Message, assessment.Decision).
+		Cols("from_user_id", "to_user_id", "message", "decision").
+		Values(assessment.UsersDirection.FromID, assessment.UsersDirection.ToID, assessment.Message, assessment.Decision).
 		BuildWithFlavor(app.SQLBuilderFlavor)
 
 	_, err := ar.db.Exec(sql, args...)

@@ -51,8 +51,8 @@ func (pr *photoDBRepository) GetByQuestionnaireID(questionnaireID int) ([]*model
 		Select("*").
 		From(photosTableName).
 		Where(sb.Equal("questionnaire_id", questionnaireID)).
-		Desc().
 		OrderBy("created_at").
+		Desc().
 		Build()
 
 	var photos []*model.Photo

@@ -51,7 +51,7 @@ func (ar *AgeRange) Validate() error {
 	return nil
 }
 
-func (ar *AgeRange) Match(age int) bool {
+func (ar *AgeRange) InRange(age int) bool {
 	return age >= ar.From && age <= ar.To
 }
 
@@ -128,7 +128,7 @@ func (q *Questionnaire) PreferredGenders() []Gender {
 }
 
 func (q *Questionnaire) CheckCompatibility(questionnaire *Questionnaire) bool {
-	if !q.AgeRange.Match(questionnaire.Age) {
+	if !q.AgeRange.InRange(questionnaire.Age) {
 		return false
 	}
 

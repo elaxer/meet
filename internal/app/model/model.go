@@ -37,8 +37,12 @@ func (ve *ValidationError) Error() string {
 // BaseModel это базовая модель, содержащая повторяющиеся поля всех моделей
 type BaseModel struct {
 	ID        int       `json:"id,omitempty"`
-	CreatedAt time.Time `json:"-"`
+	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt null.Time `json:"-"`
+}
+
+func (bm *BaseModel) BeforeAdd() {
+	bm.CreatedAt = time.Now()
 }
 
 func (bm *BaseModel) BeforeUpdate() {

@@ -109,8 +109,7 @@ func (qr *questionnaireDBRepository) GetCouples(questionnaireID int, limit, offs
 	for rows.Next() {
 		q := model.NewQuestionnaire()
 
-		fields := q.GetFieldPointers()
-		err := rows.Scan(fields...)
+		err := rows.Scan(q.GetFieldPointers()...)
 		if err != nil {
 			return questionnaires[0:0], err
 		}
@@ -191,9 +190,12 @@ func (qr *questionnaireDBRepository) Add(questionnaire *model.Questionnaire) err
 		return err
 	}
 
+	questionnaire.BeforeAdd()
+
 	ib := sqlbuilder.NewInsertBuilder()
 	sql, args := ib.InsertInto(questionnaireTableName).
 		Cols(
+			"created_at",
 			"user_id",
 			"name",
 			"age",
@@ -207,6 +209,7 @@ func (qr *questionnaireDBRepository) Add(questionnaire *model.Questionnaire) err
 			"about",
 		).
 		Values(
+			questionnaire.CreatedAt,
 			questionnaire.UserID,
 			questionnaire.Name,
 			questionnaire.Age,
@@ -236,6 +239,7 @@ func (qr *questionnaireDBRepository) Update(questionnaire *model.Questionnaire) 
 	ub := sqlbuilder.NewUpdateBuilder()
 	sql, args := ub.Update(questionnaireTableName).
 		Set(
+			ub.Assign("updated_at", questionnaire.UpdatedAt),
 			ub.Assign("name", questionnaire.Name),
 			ub.Assign("age", questionnaire.Age),
 			ub.Assign("gender", questionnaire.Gender),

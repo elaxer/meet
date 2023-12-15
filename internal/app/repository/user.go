@@ -15,6 +15,7 @@ type UserRepository interface {
 	HasByLogin(login string) (bool, error)
 	Add(user *model.User) error
 	Update(user *model.User) error
+	Remove(user *model.User) error
 }
 
 type userDBRepository struct {
@@ -33,7 +34,7 @@ func (ur *userDBRepository) GetByLogin(login string) (*model.User, error) {
 
 	sql, args := sb.Select("*").From(userTableName).Where(sb.Equal("login", login)).Limit(1).Build()
 
-	u := model.NewUser()
+	u := new(model.User)
 
 	row := ur.db.QueryRow(sql, args...)
 	err := row.Scan(u.GetFieldPointers()...)
@@ -60,21 +61,16 @@ func (ur *userDBRepository) Add(user *model.User) error {
 	if err := user.Validate(); err != nil {
 		return err
 	}
-	hbl, err := ur.HasByLogin(user.Login)
-	if err != nil {
-		return err
-	}
-	if hbl {
-		return ErrDuplicate
-	}
+
+	user.BeforeAdd()
 
 	ib := sqlbuilder.NewInsertBuilder()
 	sql, args := ib.InsertInto(userTableName).
-		Cols("login", "password_hash", "is_blocked").
-		Values(user.Login, user.PasswordHash, user.IsBlocked).
+		Cols("created_at", "login", "password_hash", "is_blocked").
+		Values(user.CreatedAt, user.Login, user.PasswordHash, user.IsBlocked).
 		BuildWithFlavor(app.SQLBuilderFlavor)
 
-	_, err = ur.db.Exec(sql, args...)
+	_, err := ur.db.Exec(sql, args...)
 
 	return err
 }
@@ -89,6 +85,7 @@ func (ur *userDBRepository) Update(user *model.User) error {
 	ub := sqlbuilder.NewUpdateBuilder()
 	sql, args := ub.Update(userTableName).
 		Set(
+			ub.Assign("updated_at", user.UpdatedAt),
 			ub.Assign("login", user.Login),
 			ub.Assign("password_hash", user.PasswordHash),
 			ub.Assign("is_blocked", user.IsBlocked),
@@ -97,6 +94,22 @@ func (ur *userDBRepository) Update(user *model.User) error {
 		BuildWithFlavor(app.SQLBuilderFlavor)
 
 	_, err := ur.db.Exec(sql, args...)
+
+	return err
+}
+
+func (ur *userDBRepository) Remove(user *model.User) error {
+	if err := user.Validate(); err != nil {
+		return err
+	}
+
+	db := sqlbuilder.NewDeleteBuilder()
+	query, args := db.
+		DeleteFrom(userTableName).
+		Where(db.Equal("id", user.ID)).
+		BuildWithFlavor(app.SQLBuilderFlavor)
+
+	_, err := ur.db.Exec(query, args...)
 
 	return err
 }

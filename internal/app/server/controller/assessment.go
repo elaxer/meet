@@ -22,10 +22,10 @@ func (ac *assessmentController) Assess(w http.ResponseWriter, r *http.Request) {
 	u := r.Context().Value(server.CtxKeyUser).(*model.User)
 
 	a := new(struct {
-		QuestionnaireID int            `json:"questionnaire_id"`
-		Decision        model.Decision `json:"decision"`
-		Message         null.String    `json:"message"`
-		IsMutual        bool           `json:"is_mutual"`
+		UserID   int            `json:"user_id"`
+		Decision model.Decision `json:"decision"`
+		Message  null.String    `json:"message"`
+		IsMutual bool           `json:"is_mutual"`
 	})
 
 	if err := json.NewDecoder(r.Body).Decode(a); err != nil {
@@ -34,7 +34,7 @@ func (ac *assessmentController) Assess(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	isMutual, err := ac.assessmentService.Assess(u.ID, a.QuestionnaireID, a.Decision, a.Message)
+	isMutual, err := ac.assessmentService.Assess(model.Direction{FromID: u.ID, ToID: a.UserID}, a.Decision, a.Message)
 	if err != nil {
 		server.ResponseError(w, err, server.GetStatusCode(err))
 

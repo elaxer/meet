@@ -13,10 +13,6 @@ type User struct {
 	IsBlocked    bool   `json:"-"`
 }
 
-func NewUser() *User {
-	return new(User)
-}
-
 // GetFieldPointers реализует интерфейс Model
 func (u *User) GetFieldPointers() []interface{} {
 	return append(

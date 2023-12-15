@@ -9,33 +9,26 @@ import (
 )
 
 type AssessmentService struct {
-	assessmentRepository    repository.AssessmentRepository
-	questionnaireRepository repository.QuestionnaireRepository
+	assessmentRepository repository.AssessmentRepository
 }
 
 func newAssessmentService(
 	assessmentRepository repository.AssessmentRepository,
-	questionnaireRepository repository.QuestionnaireRepository,
 ) *AssessmentService {
-	return &AssessmentService{assessmentRepository, questionnaireRepository}
+	return &AssessmentService{assessmentRepository}
 }
 
-func (as *AssessmentService) Assess(userID, questionnaireID int, decision model.Decision, message null.String) (bool, error) {
-	q, err := as.questionnaireRepository.GetByUserID(userID)
-	if err != nil {
-		return false, err
-	}
-
+func (as *AssessmentService) Assess(usersDirection model.Direction, decision model.Decision, message null.String) (bool, error) {
 	a := &model.Assessment{
-		Direction: model.Direction{FromID: q.ID, ToID: questionnaireID},
-		Decision:  decision,
-		Message:   message,
+		UsersDirection: usersDirection,
+		Decision:       decision,
+		Message:        message,
 	}
 	if err := a.Validate(); err != nil {
 		return false, err
 	}
 
-	hasLike, err := as.assessmentRepository.HasByDirection(a.Direction)
+	hasLike, err := as.assessmentRepository.HasByDirection(usersDirection)
 	if err != nil {
 		return false, err
 	}
@@ -47,10 +40,24 @@ func (as *AssessmentService) Assess(userID, questionnaireID int, decision model.
 		return false, err
 	}
 
-	isMutual, err := as.assessmentRepository.HasByDirection(a.Direction.NewReversed())
+	isMutual, err := as.assessmentRepository.HasByDirection(usersDirection.NewReversed())
 	if err != nil {
 		return false, nil
 	}
 
 	return isMutual, nil
+}
+
+func (as *AssessmentService) IsCouple(usersDirection model.Direction) (bool, error) {
+	has, err := as.assessmentRepository.HasByDirection(usersDirection)
+	if err != nil {
+		return false, err
+	}
+	if !has {
+		return false, nil
+	}
+
+	has, err = as.assessmentRepository.HasByDirection(usersDirection)
+
+	return has, err
 }
