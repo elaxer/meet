@@ -2,7 +2,6 @@ package service
 
 import (
 	"errors"
-	"fmt"
 	"meet/internal/app"
 	"meet/internal/app/model"
 	"meet/internal/app/repository"
@@ -11,7 +10,11 @@ import (
 	"github.com/golang-jwt/jwt"
 )
 
-var ErrFailedLogIn = errors.New("неверный логин или пароль")
+var (
+	ErrFailedLogIn           = errors.New("неверный логин или пароль")
+	ErrTokenDecoding         = errors.New("ошибка дешифрования токена")
+	ErrIncorrectCryptoMethod = errors.New("некорректный метод криптографии токена")
+)
 
 type AuthService struct {
 	config         *app.Config
@@ -37,6 +40,7 @@ func (as *AuthService) Authenticate(login string, password model.Password) (stri
 	if !u.ComparePassword(password) {
 		return "", ErrFailedLogIn
 	}
+
 	payload := jwt.MapClaims{
 		"sub": login,
 		"exp": time.Now().Add(time.Second * time.Duration(as.config.JWTConfig.Expire)).Unix(),
@@ -51,7 +55,7 @@ func (as *AuthService) Authenticate(login string, password model.Password) (stri
 func (as *AuthService) Authorize(tokenString string) (*model.User, error) {
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("неизвестный метод криптографии токена: %v", token.Header["alg"])
+			return nil, ErrIncorrectCryptoMethod
 		}
 
 		return []byte(as.config.JWTConfig.SecretKey), nil
@@ -62,7 +66,7 @@ func (as *AuthService) Authorize(tokenString string) (*model.User, error) {
 
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok {
-		return nil, errors.New("ошибка дешифрования токена")
+		return nil, ErrTokenDecoding
 	}
 	if err := claims.Valid(); err != nil {
 		return nil, err
@@ -70,7 +74,7 @@ func (as *AuthService) Authorize(tokenString string) (*model.User, error) {
 
 	login, ok := claims["sub"]
 	if !ok {
-		return nil, errors.New("некорректный токен")
+		return nil, ErrTokenDecoding
 	}
 	loginString := login.(string)
 

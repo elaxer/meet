@@ -23,24 +23,24 @@ func (ac *authController) Authenticate(w http.ResponseWriter, r *http.Request) {
 		AccessToken string `json:"access_token"`
 	}
 
-	reqB := new(struct {
+	a := new(struct {
 		Login    string         `json:"login"`
 		Password model.Password `json:"password"`
 	})
 
-	err := json.NewDecoder(r.Body).Decode(reqB)
+	err := json.NewDecoder(r.Body).Decode(a)
 	if err != nil {
 		server.ResponseError(w, err, http.StatusBadRequest)
 
 		return
 	}
 
-	token, err := ac.authService.Authenticate(reqB.Login, reqB.Password)
+	token, err := ac.authService.Authenticate(a.Login, a.Password)
 	if err != nil {
 		server.ResponseError(w, err, http.StatusUnauthorized)
 
 		return
 	}
 
-	server.Response(w, &responseBody{token}, http.StatusOK)
+	server.ResponseObject(w, &responseBody{token}, http.StatusOK)
 }

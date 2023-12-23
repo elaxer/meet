@@ -2,7 +2,12 @@ package model
 
 import "strings"
 
-var messageLenMax = 2048
+const messageLenMax = 2048
+
+var (
+	ErrMessageTextEmpty   = NewValidationError("text", "текст сообщения не может быть пустым")
+	ErrMessageTextTooLong = NewValidationError("text", "длина текста сообщения не должна превышать %d символов", messageLenMax)
+)
 
 type Message struct {
 	BaseModel
@@ -18,20 +23,36 @@ func (m *Message) GetFieldPointers() []interface{} {
 	return append(fields, &m.Text, &m.IsReaded)
 }
 
+func (m *Message) BeforeAdd() {
+	m.BaseModel.BeforeAdd()
+
+	m.Text = strings.TrimSpace(m.Text)
+}
+
+func (m *Message) BeforeUpdate() {
+	m.BaseModel.BeforeUpdate()
+
+	m.Text = strings.TrimSpace(m.Text)
+}
+
 func (m *Message) Validate() error {
+	errs := &ValidationErrors{}
+
 	if err := m.UsersDirection.Validate(); err != nil {
-		return err
+		errs.Append(err)
 	}
-
 	if strings.TrimSpace(m.Text) == "" {
-		return NewValidationError("text", "сообщение не может быть пустым")
+		errs.Append(ErrMessageTextEmpty)
 	}
-
 	if len(m.Text) > messageLenMax {
-		return NewValidationError("text", "длина сообщения не должна превышать %d символов", messageLenMax)
+		errs.Append(ErrMessageTextTooLong)
 	}
 
-	return nil
+	if errs.Empty() {
+		return nil
+	}
+
+	return errs
 }
 
 func (m *Message) Read() {

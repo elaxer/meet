@@ -2,7 +2,6 @@ package controller
 
 import (
 	"encoding/json"
-	"meet/internal/app"
 	"meet/internal/app/model"
 	"meet/internal/app/repository"
 	"meet/internal/app/server"
@@ -13,8 +12,8 @@ import (
 )
 
 var (
-	messageLimitDefault = app.ListLimitDefault
-	messageLimitMax     = app.ListLimitMax
+	messageLimitDefault = 100
+	messageLimitMax     = 1000
 )
 
 type messageController struct {
@@ -29,7 +28,7 @@ func newMessageController() *messageController {
 func (mc *messageController) GetList(w http.ResponseWriter, r *http.Request) {
 	u := r.Context().Value(server.CtxKeyUser).(*model.User)
 
-	userID, err := server.GetIntParam(mux.Vars(r), "id")
+	userID, err := server.GetParamInt(mux.Vars(r), "id")
 	if err != nil {
 		server.ResponseError(w, err, http.StatusBadRequest)
 
@@ -37,8 +36,8 @@ func (mc *messageController) GetList(w http.ResponseWriter, r *http.Request) {
 	}
 
 	query := r.URL.Query()
-	limit := server.GetIntQueryParam(query, "limit", messageLimitDefault, messageLimitMax)
-	offset := server.GetIntQueryParam(query, "offset", 0, 0)
+	limit := server.GetParamQueryInt(query, "limit", messageLimitDefault, messageLimitMax)
+	offset := server.GetParamQueryInt(query, "offset", 0, 0)
 
 	ms, err := mc.messageRepository.GetList(model.Direction{FromID: u.ID, ToID: userID}, limit, offset)
 	if err != nil {
@@ -47,16 +46,14 @@ func (mc *messageController) GetList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	server.Response(w, ms, http.StatusOK)
+	server.ResponseObject(w, ms, http.StatusOK)
 }
 
 func (mc *messageController) Send(w http.ResponseWriter, r *http.Request) {
 	u := r.Context().Value(server.CtxKeyUser).(*model.User)
 
-	m := new(struct {
-		ToUserID int    `json:"to_user_id"`
-		Text     string `json:"text"`
-	})
+	m := new(model.Message)
+	m.UsersDirection.FromID = u.ID
 
 	if err := json.NewDecoder(r.Body).Decode(m); err != nil {
 		server.ResponseError(w, err, http.StatusBadRequest)
@@ -64,32 +61,45 @@ func (mc *messageController) Send(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	message, err := mc.messageService.Text(model.Direction{FromID: u.ID, ToID: m.ToUserID}, m.Text)
-	if err != nil {
+	if err := mc.messageService.Text(m); err != nil {
 		server.ResponseError(w, err, server.GetStatusCode(err))
 
 		return
 	}
 
-	server.Response(w, message, http.StatusCreated)
+	server.ResponseObject(w, m, http.StatusCreated)
 }
 
 func (mc *messageController) Read(w http.ResponseWriter, r *http.Request) {
 	u := r.Context().Value(server.CtxKeyUser).(*model.User)
 
-	mID, err := server.GetIntParam(mux.Vars(r), "id")
+	mID, err := server.GetParamInt(mux.Vars(r), "id")
 	if err != nil {
 		server.ResponseError(w, err, http.StatusBadRequest)
 
 		return
 	}
 
-	m, err := mc.messageService.Read(u.ID, mID)
+	m := new(struct {
+		IsReaded bool `json:"is_readed"`
+	})
+	if err := json.NewDecoder(r.Body).Decode(m); err != nil {
+		server.ResponseError(w, err, http.StatusBadRequest)
+
+		return
+	}
+	if !m.IsReaded {
+		server.ResponseError(w, err, http.StatusUnprocessableEntity)
+
+		return
+	}
+
+	message, err := mc.messageService.Read(u.ID, mID)
 	if err != nil {
 		server.ResponseError(w, err, server.GetStatusCode(err))
 
 		return
 	}
 
-	server.Response(w, m, http.StatusOK)
+	server.ResponseObject(w, message, http.StatusOK)
 }

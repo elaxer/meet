@@ -1,6 +1,10 @@
 package model
 
-import "golang.org/x/crypto/bcrypt"
+import (
+	"strings"
+
+	"golang.org/x/crypto/bcrypt"
+)
 
 var (
 	ErrPasswordEmpty       = NewValidationError("password", "пароль не может быть пустым")
@@ -20,15 +24,20 @@ const (
 type Password string
 
 func (p Password) Validate() error {
-	if p == "" {
-		return ErrPasswordEmpty
-	}
+	errs := &ValidationErrors{}
 
+	if strings.TrimSpace(string(p)) == "" {
+		errs.Append(ErrPasswordEmpty)
+	}
 	if len(p) < passwordMinLength || len(p) > passwordMaxLength {
-		return ErrPasswordWrongLength
+		errs.Append(ErrPasswordWrongLength)
 	}
 
-	return nil
+	if errs.Empty() {
+		return nil
+	}
+
+	return errs
 }
 
 func (p Password) GetHash() (string, error) {

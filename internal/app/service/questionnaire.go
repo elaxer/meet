@@ -3,6 +3,7 @@ package service
 import (
 	"meet/internal/app/model"
 	"meet/internal/app/repository"
+	"time"
 )
 
 type QuestionnaireService struct {
@@ -13,7 +14,7 @@ func newQuestionnaireService(questionnaireRepository repository.QuestionnaireRep
 	return &QuestionnaireService{questionnaireRepository: questionnaireRepository}
 }
 
-func (qs *QuestionnaireService) PickUp(userID, limit, offset int) ([]*model.Questionnaire, error) {
+func (qs *QuestionnaireService) PickUp(userID, limit, offset int, currentTime time.Time) ([]*model.Questionnaire, error) {
 	questionnaires := make([]*model.Questionnaire, 0, limit)
 
 	questionnaire, err := qs.questionnaireRepository.GetByUserID(userID)
@@ -28,7 +29,7 @@ func (qs *QuestionnaireService) PickUp(userID, limit, offset int) ([]*model.Ques
 
 	compatibleQuestionnaires := make([]*model.Questionnaire, 0, len(questionnaires))
 	for _, q := range questionnaires {
-		if questionnaire.CheckCompatibility(q) && q.CheckCompatibility(questionnaire) {
+		if questionnaire.CheckCompatibilities(q, currentTime) {
 			compatibleQuestionnaires = append(compatibleQuestionnaires, q)
 		}
 	}

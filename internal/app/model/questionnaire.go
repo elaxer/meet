@@ -1,8 +1,8 @@
 package model
 
 import (
-	"errors"
-	"fmt"
+	"strings"
+	"time"
 )
 
 type Gender bool
@@ -26,40 +26,19 @@ const (
 	MeetingPurposeSex          MeetingPurpose = "sex"
 )
 
-const (
-	AgeMin = 18
-	AgeMax = 65
+const questionnaireAboutLengthMax = 2048
+
+var (
+	errQuestionnaireEmptyCountry = NewValidationError("country", "необходимо указать страну")
+	errQuestionnaireEmptyCity    = NewValidationError("city", "необходимо указать город")
+	errQuestionnaireAboutTooLong = NewValidationError("about", "текст описания анкеты не должен превышать %d символов", questionnaireAboutLengthMax)
 )
-
-type AgeRange struct {
-	From int `json:"from"`
-	To   int `json:"to"`
-}
-
-func (ar *AgeRange) Validate() error {
-	if ar.From < AgeMin {
-		return fmt.Errorf("начальный возраст должен быть не менее %d лет", AgeMin)
-	}
-	if ar.To > AgeMax {
-		return fmt.Errorf("максимальный возраст должен быть не более %d лет", AgeMax)
-	}
-
-	if ar.From > ar.To {
-		return errors.New("минимальный возраст не может быть больше максимального возраста")
-	}
-
-	return nil
-}
-
-func (ar *AgeRange) InRange(age int) bool {
-	return age >= ar.From && age <= ar.To
-}
 
 type Questionnaire struct {
 	BaseModel
 	UserID         int            `json:"user_id"`
 	Name           string         `json:"name"`
-	Age            int            `json:"age"`
+	BirthDate      BirthDate      `json:"birth_date"`
 	Gender         Gender         `json:"gender"`
 	Orientation    Orientation    `json:"orientation"`
 	MeetingPurpose MeetingPurpose `json:"meeting_purpose"`
@@ -71,17 +50,13 @@ type Questionnaire struct {
 	IsActive       bool           `json:"is_active"`
 }
 
-func NewQuestionnaire() *Questionnaire {
-	return new(Questionnaire)
-}
-
 // GetFieldPointers implements Model interface
 func (q *Questionnaire) GetFieldPointers() []interface{} {
 	return append(
 		q.BaseModel.GetFieldPointers(),
 		&q.UserID,
 		&q.Name,
-		&q.Age,
+		&q.BirthDate,
 		&q.Gender,
 		&q.Orientation,
 		&q.MeetingPurpose,
@@ -94,24 +69,46 @@ func (q *Questionnaire) GetFieldPointers() []interface{} {
 	)
 }
 
-func (q *Questionnaire) Validate() error {
+func (q *Questionnaire) BeforeAdd() {
+	q.BaseModel.BeforeAdd()
+
+	q.Country = strings.TrimSpace(q.Country)
+	q.City = strings.TrimSpace(q.City)
+	q.About = strings.TrimSpace(q.About)
+}
+
+func (q *Questionnaire) BeforeUpdate() {
+	q.BaseModel.BeforeUpdate()
+
+	q.Country = strings.TrimSpace(q.Country)
+	q.City = strings.TrimSpace(q.City)
+	q.About = strings.TrimSpace(q.About)
+}
+
+func (q *Questionnaire) Validate(currentTime time.Time) error {
+	errs := &ValidationErrors{}
+
 	if err := q.AgeRange.Validate(); err != nil {
-		return err
+		errs.Append(err)
+	}
+	if err := q.BirthDate.Validate(currentTime); err != nil {
+		errs.Append(err)
+	}
+	if strings.TrimSpace(q.Country) == "" {
+		errs.Append(errQuestionnaireEmptyCountry)
+	}
+	if strings.TrimSpace(q.City) == "" {
+		errs.Append(errQuestionnaireEmptyCity)
+	}
+	if len(strings.TrimSpace(q.About)) > questionnaireAboutLengthMax {
+		errs.Append(errQuestionnaireAboutTooLong)
 	}
 
-	if q.Age < AgeMin || q.Age > AgeMax {
-		return fmt.Errorf("возраст должен быть не менее %d лет и не более %d лет", AgeMin, AgeMax)
+	if errs.Empty() {
+		return nil
 	}
 
-	return nil
-}
-
-func (q *Questionnaire) Activate() {
-	q.IsActive = true
-}
-
-func (q *Questionnaire) Deactivate() {
-	q.IsActive = false
+	return errs
 }
 
 func (q *Questionnaire) PreferredGenders() []Gender {
@@ -127,8 +124,13 @@ func (q *Questionnaire) PreferredGenders() []Gender {
 	}
 }
 
-func (q *Questionnaire) CheckCompatibility(questionnaire *Questionnaire) bool {
-	if !q.AgeRange.InRange(questionnaire.Age) {
+func (q *Questionnaire) checkCompatibility(questionnaire *Questionnaire, currentTime time.Time) bool {
+	// todo add tests
+	if !q.IsActive {
+		return false
+	}
+
+	if !q.AgeRange.InRange(questionnaire.BirthDate.Age(currentTime)) {
 		return false
 	}
 
@@ -139,4 +141,8 @@ func (q *Questionnaire) CheckCompatibility(questionnaire *Questionnaire) bool {
 	}
 
 	return false
+}
+
+func (q *Questionnaire) CheckCompatibilities(questionnaire *Questionnaire, currentTime time.Time) bool {
+	return q.checkCompatibility(questionnaire, currentTime) && questionnaire.checkCompatibility(q, currentTime)
 }

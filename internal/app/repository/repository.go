@@ -22,15 +22,14 @@ type RepositoryContainer struct {
 }
 
 func NewRepositoryContainer(db *sql.DB) *RepositoryContainer {
-	rc := &RepositoryContainer{
-		assessmentRepository: newAssessmentRepository(db),
-		photoRepository:      newPhotoRepository(db),
-		userRepository:       newUserRepository(db),
+	pr := newPhotoRepository(db)
+	return &RepositoryContainer{
+		assessmentRepository:    newAssessmentRepository(db),
+		messageRepository:       newMessageRepository(db),
+		photoRepository:         pr,
+		userRepository:          newUserRepository(db),
+		questionnaireRepository: newQuestionnaireRepository(db, pr),
 	}
-
-	rc.questionnaireRepository = newQuestionnaireRepository(db, rc.photoRepository)
-
-	return rc
 }
 
 func (rc *RepositoryContainer) Assessment() AssessmentRepository {

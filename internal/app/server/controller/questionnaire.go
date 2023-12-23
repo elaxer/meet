@@ -8,13 +8,14 @@ import (
 	"meet/internal/app/server"
 	"meet/internal/app/service"
 	"net/http"
+	"time"
 )
 
 var (
 	questionnaireLimitDefault = app.ListLimitDefault
 	questionnaireLimitMax     = app.ListLimitMax
 	couplesLimitDefault       = app.ListLimitDefault
-	coupleLimitMax            = app.ListLimitMax
+	couplesLimitMax           = app.ListLimitMax
 )
 
 type questionnaireController struct {
@@ -42,7 +43,7 @@ func (qc *questionnaireController) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	server.Response(w, q, http.StatusOK)
+	server.ResponseObject(w, q, http.StatusOK)
 }
 
 func (qc *questionnaireController) GetCouples(w http.ResponseWriter, r *http.Request) {
@@ -56,40 +57,40 @@ func (qc *questionnaireController) GetCouples(w http.ResponseWriter, r *http.Req
 	}
 
 	query := r.URL.Query()
-	limit := server.GetIntQueryParam(query, "limit", couplesLimitDefault, coupleLimitMax)
-	offset := server.GetIntQueryParam(query, "offset", 0, 0)
+	limit := server.GetParamQueryInt(query, "limit", couplesLimitDefault, couplesLimitMax)
+	offset := server.GetParamQueryInt(query, "offset", 0, 0)
 
-	qs, err := qc.questionnaireRepository.GetCouples(q.ID, limit, offset)
+	qs, err := qc.questionnaireRepository.Couples(q.ID, limit, offset)
 	if err != nil {
 		server.ResponseError(w, err, http.StatusInternalServerError)
 
 		return
 	}
 
-	server.Response(w, qs, http.StatusOK)
+	server.ResponseObject(w, qs, http.StatusOK)
 }
 
 func (qc *questionnaireController) GetList(w http.ResponseWriter, r *http.Request) {
 	u := r.Context().Value(server.CtxKeyUser).(*model.User)
 
 	query := r.URL.Query()
-	limit := server.GetIntQueryParam(query, "limit", questionnaireLimitDefault, questionnaireLimitMax)
-	offset := server.GetIntQueryParam(query, "offset", 0, 0)
+	limit := server.GetParamQueryInt(query, "limit", questionnaireLimitDefault, questionnaireLimitMax)
+	offset := server.GetParamQueryInt(query, "offset", 0, 0)
 
-	qs, err := qc.questionnaireService.PickUp(u.ID, limit, offset)
+	qs, err := qc.questionnaireService.PickUp(u.ID, limit, offset, time.Now())
 	if err != nil {
 		server.ResponseError(w, err, server.GetStatusCode(err))
 
 		return
 	}
 
-	server.Response(w, qs, http.StatusOK)
+	server.ResponseObject(w, qs, http.StatusOK)
 }
 
 func (qc *questionnaireController) Create(w http.ResponseWriter, r *http.Request) {
 	u := r.Context().Value(server.CtxKeyUser).(*model.User)
 
-	q := model.NewQuestionnaire()
+	q := new(model.Questionnaire)
 	q.UserID = u.ID
 
 	if err := json.NewDecoder(r.Body).Decode(q); err != nil {
@@ -104,13 +105,13 @@ func (qc *questionnaireController) Create(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	server.Response(w, q, http.StatusCreated)
+	server.ResponseObject(w, q, http.StatusCreated)
 }
 
 func (qc *questionnaireController) Update(w http.ResponseWriter, r *http.Request) {
 	u := r.Context().Value(server.CtxKeyUser).(*model.User)
 
-	q := model.NewQuestionnaire()
+	q := new(model.Questionnaire)
 	q.UserID = u.ID
 
 	if err := json.NewDecoder(r.Body).Decode(q); err != nil {
@@ -125,5 +126,5 @@ func (qc *questionnaireController) Update(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	server.Response(w, q, http.StatusOK)
+	server.ResponseObject(w, q, http.StatusOK)
 }

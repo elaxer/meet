@@ -26,14 +26,14 @@ func (am *authMiddleware) Authorize(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		a := r.Header.Get("Authorization")
 		if a == "" {
-			server.Response(w, nil, http.StatusUnauthorized)
+			server.ResponseEmpty(w, http.StatusUnauthorized)
 
 			return
 		}
 		values := strings.Split(a, " ")
 		method, tokenString := values[0], values[1]
 		if method != authMethodBearer {
-			server.Response(w, nil, http.StatusUnauthorized)
+			server.ResponseEmpty(w, http.StatusUnauthorized)
 
 			return
 		}
@@ -46,12 +46,13 @@ func (am *authMiddleware) Authorize(next http.Handler) http.Handler {
 		}
 
 		if u.IsBlocked {
-			server.Response(w, nil, http.StatusForbidden)
+			server.ResponseEmpty(w, http.StatusForbidden)
 
 			return
 		}
 
 		ctx := context.WithValue(r.Context(), server.CtxKeyUser, u)
+
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }

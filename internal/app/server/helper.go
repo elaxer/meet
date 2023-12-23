@@ -3,32 +3,103 @@ package server
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"meet/internal/app/model"
-	"meet/internal/app/repository"
-	"meet/internal/app/service"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
+
+	"github.com/h2non/filetype"
 )
 
-func Response(w http.ResponseWriter, v any, statusCode int) {
-	w.Header().Set("Content-type", "application/json")
-	w.WriteHeader(statusCode)
+var (
+	ErrParamNotSpecified = errors.New("параметр не был передан")
+)
 
+func ResponseObject(w http.ResponseWriter, v any, statusCode int) {
 	if v == nil {
+		ResponseEmpty(w, statusCode)
+
 		return
 	}
 
 	j, err := json.Marshal(v)
 	if err != nil {
-		log.Println(err)
+		ResponseError(w, err, http.StatusInternalServerError)
+
+		return
 	}
 
-	_, err = w.Write(j)
-	if err != nil {
-		log.Println(err)
+	ResponseRaw(w, j, statusCode)
+}
+
+func ResponseError(w http.ResponseWriter, err error, statusCode int) {
+	log.Println(err)
+
+	if _, ok := err.(*model.ValidationErrors); ok {
+		ResponseObject(w, err, http.StatusUnprocessableEntity)
+
+		return
 	}
+
+	if _, ok := err.(*model.ValidationError); ok {
+		errs := &model.ValidationErrors{}
+		errs.Append(err)
+
+		ResponseObject(w, errs, http.StatusUnprocessableEntity)
+
+		return
+	}
+
+	ResponseEmpty(w, statusCode)
+}
+
+func ResponseRaw(w http.ResponseWriter, bytes []byte, statusCode int) {
+	w.Header().Set("Content-type", "application/json; charset=utf-8")
+	w.WriteHeader(statusCode)
+
+	if _, err := w.Write(bytes); err != nil {
+		ResponseError(w, err, http.StatusInternalServerError)
+
+		return
+	}
+}
+
+func ResponseEmpty(w http.ResponseWriter, statusCode int) {
+	w.Header().Set("Content-type", "application/json; charset=utf-8")
+
+	w.WriteHeader(statusCode)
+}
+
+func ResponseFile(w http.ResponseWriter, r *http.Request, filePath string) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		ResponseError(w, err, http.StatusInternalServerError)
+
+		return
+	}
+	defer file.Close()
+
+	t, err := filetype.MatchReader(file)
+	if err != nil {
+		ResponseError(w, err, http.StatusInternalServerError)
+
+		return
+	}
+
+	fileInfo, err := file.Stat()
+	if err != nil {
+		ResponseError(w, err, http.StatusInternalServerError)
+
+		return
+	}
+
+	w.Header().Set("Content-type", t.MIME.Value)
+	w.Header().Set("Content-Length", fmt.Sprintf("%d", fileInfo.Size()))
+
+	http.ServeContent(w, r, fileInfo.Name(), fileInfo.ModTime(), file)
 }
 
 func GetStatusCode(err error) int {
@@ -36,32 +107,28 @@ func GetStatusCode(err error) int {
 		return http.StatusOK
 	}
 
+	for sc, errs := range ErrorsMap {
+		for _, e := range errs {
+			if errors.Is(err, e) {
+				return sc
+			}
+		}
+	}
+
 	if _, ok := err.(*model.ValidationError); ok {
-		return http.StatusBadRequest
+		return http.StatusUnprocessableEntity
 	}
-	if errors.Is(err, repository.ErrDuplicate) {
-		return http.StatusConflict
-	}
-	if errors.Is(err, repository.ErrNotFound) {
-		return http.StatusNotFound
-	}
-	if errors.Is(err, service.ErrFileTypeWrong) {
-		return http.StatusBadRequest
+	if _, ok := err.(*model.ValidationErrors); ok {
+		return http.StatusUnprocessableEntity
 	}
 
 	return http.StatusInternalServerError
 }
 
-func ResponseError(w http.ResponseWriter, err error, statusCode int) {
-	log.Println(err)
-
-	Response(w, nil, statusCode)
-}
-
-func GetIntParam(vars map[string]string, key string) (int, error) {
+func GetParamInt(vars map[string]string, key string) (int, error) {
 	v, ok := vars[key]
 	if !ok {
-		return 0, errors.New("параметр не был передан")
+		return 0, ErrParamNotSpecified
 	}
 
 	vInt, err := strconv.Atoi(v)
@@ -69,7 +136,7 @@ func GetIntParam(vars map[string]string, key string) (int, error) {
 	return vInt, err
 }
 
-func GetIntQueryParam(query url.Values, key string, byDefault, max int) int {
+func GetParamQueryInt(query url.Values, key string, byDefault, max int) int {
 	v := query.Get(key)
 	if v == "" {
 		return byDefault

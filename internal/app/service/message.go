@@ -6,6 +6,8 @@ import (
 	"meet/internal/app/repository"
 )
 
+var ErrUsersNotCoupled = errors.New("пользователи не находятся в паре")
+
 type MessageService struct {
 	assessmentRepository repository.AssessmentRepository
 	messageRepository    repository.MessageRepository
@@ -20,24 +22,22 @@ func newMessageService(
 	return &MessageService{assessmentRepository, messageRepository, assessmentService}
 }
 
-func (ms *MessageService) Text(usersDirection model.Direction, text string) (*model.Message, error) {
-	isCouple, err := ms.assessmentService.IsCouple(usersDirection)
+func (ms *MessageService) Text(message *model.Message) error {
+	if err := message.Validate(); err != nil {
+		return err
+	}
+
+	isCouple, err := ms.assessmentService.IsCouple(message.UsersDirection)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	if !isCouple {
-		return nil, errors.New("невозможно отправить сообщение, так как пользователи не находятся в паре")
+		return ErrUsersNotCoupled
 	}
 
-	m := &model.Message{
-		UsersDirection: usersDirection,
-		Text:           text,
-	}
-	if err := ms.messageRepository.Add(m); err != nil {
-		return nil, err
-	}
+	err = ms.messageRepository.Add(message)
 
-	return m, nil
+	return err
 }
 
 func (ms *MessageService) Read(userID, messageID int) (*model.Message, error) {
@@ -47,7 +47,7 @@ func (ms *MessageService) Read(userID, messageID int) (*model.Message, error) {
 	}
 
 	if m.UsersDirection.ToID != userID {
-		return nil, errors.New("невозможно прочитать сообщение, так как оно не было отправлено данному пользователю")
+		return nil, repository.ErrNotFound
 	}
 
 	if m.IsReaded {

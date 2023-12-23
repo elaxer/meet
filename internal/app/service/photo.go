@@ -10,9 +10,9 @@ import (
 )
 
 const dirUploadPhoto = "photos"
-const maxPhotos = 10
+const photosMax = 10
 
-var errPhotoUploadLimit = errors.New("превышено макисмальное количество загружаемых фотографий в анкету")
+var ErrPhotoUploadLimit = errors.New("превышено макисмальное количество загружаемых фотографий в анкету")
 
 type PhotoService struct {
 	config                  *app.Config
@@ -41,17 +41,17 @@ func (ps *PhotoService) Upload(userID int, file io.ReadSeeker) (*model.Photo, er
 		return nil, err
 	}
 
-	if len(q.Photos) > maxPhotos {
-		return nil, errPhotoUploadLimit
+	if len(q.Photos) > photosMax {
+		return nil, ErrPhotoUploadLimit
 	}
 
-	f, err := ps.fileService.Upload(file, []string{"image"}, dirUploadPhoto)
+	_, fname, err := ps.fileService.Upload(file, []string{"image"}, dirUploadPhoto)
 	if err != nil {
 		return nil, err
 	}
 
 	p := new(model.Photo)
-	p.Path = f.Name()
+	p.Path = fname
 	p.QuestionnaireID = q.ID
 	if err := ps.photoRepository.Add(p); err != nil {
 		return nil, err

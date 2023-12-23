@@ -25,7 +25,7 @@ func ContentLength(next http.Handler) http.Handler {
 		}
 
 		if len > maxUploadSize {
-			server.Response(w, nil, http.StatusRequestEntityTooLarge)
+			server.ResponseEmpty(w, http.StatusRequestEntityTooLarge)
 
 			return
 		}

@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"meet/internal/app"
 	"meet/internal/app/repository"
 	"meet/internal/app/service"
 )
@@ -11,16 +12,18 @@ type ControllerContainer struct {
 	messageController       *messageController
 	photoController         *photoController
 	questionnaireController *questionnaireController
+	swaggerController       *swaggerController
 	userController          *userController
 }
 
-func NewControllerContainer(repositories *repository.RepositoryContainer, services *service.ServiceContainer) *ControllerContainer {
+func NewControllerContainer(cfg *app.Config, repositories *repository.RepositoryContainer, services *service.ServiceContainer) *ControllerContainer {
 	return &ControllerContainer{
 		assessmentController:    newAssessmentController(services.Assessment()),
 		authController:          newAuthController(services.Auth()),
 		messageController:       newMessageController(),
 		photoController:         newPhotoController(repositories.Photo(), services.Photo()),
 		questionnaireController: newQuestionnaireController(repositories.Questionnaire(), services.Questionnaire()),
+		swaggerController:       newSwaggerController(cfg),
 		userController:          newUserController(repositories.User(), services.User()),
 	}
 }
@@ -43,6 +46,10 @@ func (cc *ControllerContainer) Photo() *photoController {
 
 func (cc *ControllerContainer) Questionnaire() *questionnaireController {
 	return cc.questionnaireController
+}
+
+func (cc *ControllerContainer) Swagger() *swaggerController {
+	return cc.swaggerController
 }
 
 func (cc *ControllerContainer) User() *userController {

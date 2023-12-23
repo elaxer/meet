@@ -1,6 +1,8 @@
 package model
 
-import "errors"
+var (
+	ErrDirectionIdentifiersEqual = NewValidationError("direction", "идентификаторы отправителя и получателя не должны быть одинаковыми")
+)
 
 type Direction struct {
 	FromID int `json:"from_id"`
@@ -16,11 +18,16 @@ func (d *Direction) GetFieldPointers() []interface{} {
 }
 
 func (d *Direction) Validate() error {
+	errs := &ValidationErrors{}
 	if d.FromID == d.ToID {
-		return errors.New("идентификаторы отправителя и получателя не должны быть одинаковыми")
+		errs.Append(ErrDirectionIdentifiersEqual)
 	}
 
-	return nil
+	if errs.Empty() {
+		return nil
+	}
+
+	return errs
 }
 
 func (d *Direction) NewReversed() Direction {

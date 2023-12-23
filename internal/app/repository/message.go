@@ -59,9 +59,9 @@ func (mr *messageDBRepository) GetList(usersDirection model.Direction, limit, of
 			sb.And(sb.Equal("from_user_id", usersDirection.ToID), sb.Equal("to_user_id", usersDirection.FromID)),
 		)).
 		OrderBy("created_at").
+		Desc().
 		Limit(limit).
 		Offset(offset).
-		Desc().
 		Build()
 
 	rows, err := mr.db.Query(query, args...)
@@ -83,11 +83,11 @@ func (mr *messageDBRepository) GetList(usersDirection model.Direction, limit, of
 }
 
 func (mr *messageDBRepository) Add(message *model.Message) error {
+	message.BeforeAdd()
+
 	if err := message.Validate(); err != nil {
 		return err
 	}
-
-	message.BeforeAdd()
 
 	ib := sqlbuilder.NewInsertBuilder()
 	query, args := ib.
@@ -114,11 +114,11 @@ func (mr *messageDBRepository) Add(message *model.Message) error {
 }
 
 func (mr *messageDBRepository) Update(message *model.Message) error {
+	message.BeforeUpdate()
+
 	if err := message.Validate(); err != nil {
 		return err
 	}
-
-	message.BeforeUpdate()
 
 	ub := sqlbuilder.NewUpdateBuilder()
 	query, args := ub.

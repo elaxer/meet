@@ -47,6 +47,8 @@ func (ar *assessmentDBRepository) HasByDirection(direction model.Direction) (boo
 }
 
 func (ar *assessmentDBRepository) Add(assessment *model.Assessment) error {
+	assessment.BeforeAdd()
+
 	if err := assessment.Validate(); err != nil {
 		return err
 	}
@@ -54,8 +56,8 @@ func (ar *assessmentDBRepository) Add(assessment *model.Assessment) error {
 	ib := sqlbuilder.NewInsertBuilder()
 	sql, args := ib.
 		InsertInto(assessmentTableName).
-		Cols("from_user_id", "to_user_id", "message", "decision").
-		Values(assessment.UsersDirection.FromID, assessment.UsersDirection.ToID, assessment.Message, assessment.Decision).
+		Cols("created_at", "from_user_id", "to_user_id", "message", "decision").
+		Values(assessment.CreatedAt, assessment.UsersDirection.FromID, assessment.UsersDirection.ToID, assessment.Message, assessment.Decision).
 		BuildWithFlavor(app.SQLBuilderFlavor)
 
 	_, err := ar.db.Exec(sql, args...)

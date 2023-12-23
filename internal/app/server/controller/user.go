@@ -24,7 +24,7 @@ func newUserController(userRepository repository.UserRepository, userService *se
 func (uc *userController) Get(w http.ResponseWriter, r *http.Request) {
 	u := r.Context().Value(server.CtxKeyUser).(*model.User)
 
-	server.Response(w, u, http.StatusOK)
+	server.ResponseObject(w, u, http.StatusOK)
 }
 
 func (uc *userController) Register(w http.ResponseWriter, r *http.Request) {
@@ -46,7 +46,7 @@ func (uc *userController) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	server.Response(w, user, http.StatusCreated)
+	server.ResponseObject(w, user, http.StatusCreated)
 }
 
 func (uc *userController) ChangePassword(w http.ResponseWriter, r *http.Request) {
@@ -69,7 +69,7 @@ func (uc *userController) ChangePassword(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	server.Response(w, nil, http.StatusNoContent)
+	server.ResponseEmpty(w, http.StatusNoContent)
 }
 
 func (uc *userController) Delete(w http.ResponseWriter, r *http.Request) {
@@ -81,5 +81,5 @@ func (uc *userController) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	server.Response(w, u, http.StatusOK)
+	server.ResponseObject(w, u, http.StatusOK)
 }

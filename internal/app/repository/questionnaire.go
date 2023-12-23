@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"meet/internal/app"
 	"meet/internal/app/model"
+	"time"
 
 	"github.com/huandu/go-sqlbuilder"
 )
@@ -17,7 +18,7 @@ const questionnaireTableName = "questionnaires"
 type QuestionnaireRepository interface {
 	GetByUserID(userID int) (*model.Questionnaire, error)
 	HasByUserID(userID int) (bool, error)
-	GetCouples(userID int, limit, offset int) ([]*model.Questionnaire, error)
+	Couples(userID int, limit, offset int) ([]*model.Questionnaire, error)
 	PickUp(questionnaire *model.Questionnaire, limit, offset int) ([]*model.Questionnaire, error)
 	Add(questionnaire *model.Questionnaire) error
 	Update(questionnaire *model.Questionnaire) error
@@ -46,7 +47,7 @@ func (qr *questionnaireDBRepository) GetByUserID(userID int) (*model.Questionnai
 		Limit(1).
 		Build()
 
-	q := model.NewQuestionnaire()
+	q := new(model.Questionnaire)
 
 	row := qr.db.QueryRow(query, args...)
 	err := row.Scan(q.GetFieldPointers()...)
@@ -83,9 +84,9 @@ func (qr *questionnaireDBRepository) HasByUserID(userID int) (bool, error) {
 	return ra > 0, err
 }
 
-// GetCouples реализует интерфейс UserRepository
-// GetCouples возвращает список анкет, с которыми пользователь состоит в паре
-func (qr *questionnaireDBRepository) GetCouples(questionnaireID int, limit, offset int) ([]*model.Questionnaire, error) {
+// Couples реализует интерфейс UserRepository
+// Couples возвращает список анкет, с которыми пользователь состоит в паре
+func (qr *questionnaireDBRepository) Couples(questionnaireID int, limit, offset int) ([]*model.Questionnaire, error) {
 	sb := qr.createSelectBuilder()
 	query, args := sb.
 		Select(fmt.Sprintf("%s.*", questionnaireTableName)).
@@ -107,7 +108,7 @@ func (qr *questionnaireDBRepository) GetCouples(questionnaireID int, limit, offs
 	defer rows.Close()
 
 	for rows.Next() {
-		q := model.NewQuestionnaire()
+		q := new(model.Questionnaire)
 
 		err := rows.Scan(q.GetFieldPointers()...)
 		if err != nil {
@@ -125,7 +126,6 @@ func (qr *questionnaireDBRepository) GetCouples(questionnaireID int, limit, offs
 	return questionnaires, nil
 }
 
-// PickUpCouples implements UserRepository interface
 func (qr *questionnaireDBRepository) PickUp(questionnaire *model.Questionnaire, limit, offset int) ([]*model.Questionnaire, error) {
 	questionnaires := make([]*model.Questionnaire, 0, limit)
 
@@ -146,7 +146,6 @@ func (qr *questionnaireDBRepository) PickUp(questionnaire *model.Questionnaire, 
 		Join(userTableName, "users.id = questionnaires.user_id").
 		Where("users.is_blocked = false").
 		Where("questionnaires.is_active = true").
-		Where(sb.Between("age", questionnaire.AgeRange.From, questionnaire.AgeRange.To)).
 		Where(sb.NotEqual("questionnaires.id", questionnaire.ID)).
 		Where(sb.NotIn(
 			"questionnaires.id",
@@ -186,11 +185,11 @@ func (qr *questionnaireDBRepository) PickUp(questionnaire *model.Questionnaire, 
 }
 
 func (qr *questionnaireDBRepository) Add(questionnaire *model.Questionnaire) error {
-	if err := questionnaire.Validate(); err != nil {
+	questionnaire.BeforeAdd()
+
+	if err := questionnaire.Validate(time.Now()); err != nil {
 		return err
 	}
-
-	questionnaire.BeforeAdd()
 
 	ib := sqlbuilder.NewInsertBuilder()
 	sql, args := ib.InsertInto(questionnaireTableName).
@@ -198,7 +197,7 @@ func (qr *questionnaireDBRepository) Add(questionnaire *model.Questionnaire) err
 			"created_at",
 			"user_id",
 			"name",
-			"age",
+			"bidth_date",
 			"gender",
 			"orientation",
 			"meeting_purpose",
@@ -212,7 +211,7 @@ func (qr *questionnaireDBRepository) Add(questionnaire *model.Questionnaire) err
 			questionnaire.CreatedAt,
 			questionnaire.UserID,
 			questionnaire.Name,
-			questionnaire.Age,
+			questionnaire.BirthDate,
 			questionnaire.Gender,
 			questionnaire.Orientation,
 			questionnaire.MeetingPurpose,
@@ -230,18 +229,18 @@ func (qr *questionnaireDBRepository) Add(questionnaire *model.Questionnaire) err
 }
 
 func (qr *questionnaireDBRepository) Update(questionnaire *model.Questionnaire) error {
-	if err := questionnaire.Validate(); err != nil {
+	questionnaire.BeforeUpdate()
+
+	if err := questionnaire.Validate(time.Now()); err != nil {
 		return err
 	}
-
-	questionnaire.BeforeUpdate()
 
 	ub := sqlbuilder.NewUpdateBuilder()
 	sql, args := ub.Update(questionnaireTableName).
 		Set(
 			ub.Assign("updated_at", questionnaire.UpdatedAt),
 			ub.Assign("name", questionnaire.Name),
-			ub.Assign("age", questionnaire.Age),
+			ub.Assign("birth_date", questionnaire.BirthDate),
 			ub.Assign("gender", questionnaire.Gender),
 			ub.Assign("orientation", questionnaire.Orientation),
 			ub.Assign("meeting_purpose", questionnaire.MeetingPurpose),

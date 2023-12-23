@@ -17,7 +17,7 @@ type ServiceContainer struct {
 
 func NewServiceContainer(cfg *app.Config, repositories *repository.RepositoryContainer) *ServiceContainer {
 	fs := newFileService(cfg)
-	as := newAssessmentService(repositories.Assessment())
+	as := newAssessmentService(repositories.Assessment(), repositories.Questionnaire())
 	return &ServiceContainer{
 		assessmentService:    as,
 		authService:          newAuthService(cfg, repositories.User()),

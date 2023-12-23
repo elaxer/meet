@@ -5,6 +5,10 @@ import (
 	"strconv"
 )
 
+const (
+	swaggerFile = "api/swagger.yml"
+)
+
 type DBConfig struct {
 	DriverName string
 	Host       string
@@ -29,6 +33,7 @@ type Config struct {
 	ServerConfig *ServerConfig
 	JWTConfig    *JWTConfig
 	UploadDir    string
+	SwaggerFile  string
 }
 
 func NewConfig() (*Config, error) {
@@ -59,6 +64,7 @@ func NewConfig() (*Config, error) {
 			Expire:    jwtExpire,
 		},
 		os.Getenv("UPLOAD_DIR"),
+		swaggerFile,
 	}
 
 	return c, nil

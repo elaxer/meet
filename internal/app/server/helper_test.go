@@ -4,6 +4,7 @@ import (
 	"errors"
 	"meet/internal/app/model"
 	"meet/internal/app/repository"
+	"meet/internal/app/service"
 	"net/http"
 	"net/url"
 	"testing"
@@ -84,7 +85,7 @@ func TestGetIntQueryParam(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := GetIntQueryParam(tt.args.query, tt.args.key, tt.args.byDefault, tt.args.max); got != tt.want {
+			if got := GetParamQueryInt(tt.args.query, tt.args.key, tt.args.byDefault, tt.args.max); got != tt.want {
 				t.Errorf("GetIntQueryParam() = %v, want %v", got, tt.want)
 			}
 		})
@@ -103,7 +104,19 @@ func TestGetStatusCode(t *testing.T) {
 		{
 			"Validation error",
 			args{model.NewValidationError("password", "неверный пароль")},
-			http.StatusBadRequest,
+			http.StatusUnprocessableEntity,
+		},
+		{
+			"Validation errors",
+			args{
+				&model.ValidationErrors{
+					Errors: []error{
+						model.NewValidationError("login", "неверный логин"),
+						model.NewValidationError("password", "неверный пароль"),
+					},
+				},
+			},
+			http.StatusUnprocessableEntity,
 		},
 		{
 			"Not Found error",
@@ -111,14 +124,24 @@ func TestGetStatusCode(t *testing.T) {
 			http.StatusNotFound,
 		},
 		{
-			"Duplicate error",
+			"Conflict error",
 			args{repository.ErrDuplicate},
+			http.StatusConflict,
+		},
+		{
+			"Conflict error (2)",
+			args{service.ErrAlreadyAssessed},
 			http.StatusConflict,
 		},
 		{
 			"Unregistered error",
 			args{errors.New("unregistered error")},
 			http.StatusInternalServerError,
+		},
+		{
+			"No error",
+			args{nil},
+			http.StatusOK,
 		},
 	}
 	for _, tt := range tests {

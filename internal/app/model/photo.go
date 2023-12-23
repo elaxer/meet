@@ -1,5 +1,12 @@
 package model
 
+import "strings"
+
+var (
+	ErrPhotoUnspecifiedQuestionnaire = NewValidationError("questionnaireID", "необходимо указать анкету")
+	ErrPhotoEmptyPath                = NewValidationError("path", "путь не может быть пустым")
+)
+
 type Photo struct {
 	BaseModel
 	QuestionnaireID int    `json:"-"`
@@ -10,13 +17,25 @@ func (p *Photo) GetFieldPointers() []interface{} {
 	return append(p.BaseModel.GetFieldPointers(), &p.QuestionnaireID, &p.Path)
 }
 
+func (p *Photo) BeforeAdd() {
+	p.BaseModel.BeforeAdd()
+
+	p.Path = strings.TrimSpace(p.Path)
+	p.Path = strings.Trim(p.Path, "/\\")
+}
+
 func (p *Photo) Validate() error {
+	errs := &ValidationErrors{}
 	if p.QuestionnaireID == 0 {
-		return NewValidationError("questionnaireID", "значение не может быть пустым")
+		errs.Append(ErrPhotoUnspecifiedQuestionnaire)
 	}
-	if p.Path == "" {
-		return NewValidationError("path", "значение не может быть пустым")
+	if strings.TrimSpace(p.Path) == "" {
+		errs.Append(ErrPhotoEmptyPath)
 	}
 
-	return nil
+	if errs.Empty() {
+		return nil
+	}
+
+	return errs
 }

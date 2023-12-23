@@ -55,7 +55,7 @@ func (pr *photoDBRepository) GetByQuestionnaireID(questionnaireID int) ([]*model
 		Desc().
 		Build()
 
-	var photos []*model.Photo
+	photos := make([]*model.Photo, 0)
 
 	rows, err := pr.db.Query(query, args...)
 	if err != nil {
@@ -77,6 +77,8 @@ func (pr *photoDBRepository) GetByQuestionnaireID(questionnaireID int) ([]*model
 }
 
 func (pr *photoDBRepository) Add(photo *model.Photo) error {
+	photo.BeforeAdd()
+
 	if err := photo.Validate(); err != nil {
 		return err
 	}
@@ -84,8 +86,8 @@ func (pr *photoDBRepository) Add(photo *model.Photo) error {
 	ib := sqlbuilder.NewInsertBuilder()
 	query, args := ib.
 		InsertInto(photosTableName).
-		Cols("questionnaire_id", "path").
-		Values(photo.QuestionnaireID, photo.Path).
+		Cols("created_at", "questionnaire_id", "path").
+		Values(photo.CreatedAt, photo.QuestionnaireID, photo.Path).
 		BuildWithFlavor(app.SQLBuilderFlavor)
 
 	_, err := pr.db.Exec(query, args...)

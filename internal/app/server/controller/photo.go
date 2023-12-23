@@ -25,7 +25,7 @@ func newPhotoController(photoRepository repository.PhotoRepository, photoService
 func (pc *photoController) Upload(w http.ResponseWriter, r *http.Request) {
 	u := r.Context().Value(server.CtxKeyUser).(*model.User)
 
-	file, _, err := r.FormFile("file")
+	file, _, err := r.FormFile("photo")
 	if err != nil {
 		server.ResponseError(w, err, http.StatusBadRequest)
 
@@ -40,33 +40,33 @@ func (pc *photoController) Upload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	server.Response(w, photo, http.StatusCreated)
+	server.ResponseObject(w, photo, http.StatusCreated)
 }
 
 func (pc *photoController) Get(w http.ResponseWriter, r *http.Request) {
 	u := r.Context().Value(server.CtxKeyUser).(*model.User)
 
-	pID, err := server.GetIntParam(mux.Vars(r), "id")
+	pID, err := server.GetParamInt(mux.Vars(r), "id")
 	if err != nil {
 		server.ResponseError(w, err, http.StatusBadRequest)
 
 		return
 	}
 
-	path, err := pc.photoService.GetPath(u.ID, pID)
+	fp, err := pc.photoService.GetPath(u.ID, pID)
 	if err != nil {
 		server.ResponseError(w, err, server.GetStatusCode(err))
 
 		return
 	}
 
-	http.ServeFile(w, r, path)
+	server.ResponseFile(w, r, fp)
 }
 
 func (pc *photoController) Delete(w http.ResponseWriter, r *http.Request) {
 	u := r.Context().Value(server.CtxKeyUser).(*model.User)
 
-	pID, err := server.GetIntParam(mux.Vars(r), "id")
+	pID, err := server.GetParamInt(mux.Vars(r), "id")
 	if err != nil {
 		server.ResponseError(w, err, http.StatusBadRequest)
 
@@ -80,5 +80,5 @@ func (pc *photoController) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	server.Response(w, p, http.StatusOK)
+	server.ResponseObject(w, p, http.StatusOK)
 }

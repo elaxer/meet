@@ -23,14 +23,14 @@ func newFileService(config *app.Config) *FileService {
 	return &FileService{config}
 }
 
-func (fs *FileService) Upload(file io.ReadSeeker, types []string, uploadsSubDir string) (*os.File, error) {
+func (fs *FileService) Upload(file io.ReadSeeker, types []string, uploadsSubDir string) (*os.File, string, error) {
 	t, err := filetype.MatchReader(file)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	if !fs.checkType(t.MIME.Type, types) {
-		return nil, ErrFileTypeWrong
+		return nil, "", ErrFileTypeWrong
 	}
 
 	fname := fs.generateName(t.Extension)
@@ -38,17 +38,17 @@ func (fs *FileService) Upload(file io.ReadSeeker, types []string, uploadsSubDir 
 
 	f, err := os.Create(path)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	defer f.Close()
 
 	file.Seek(0, io.SeekStart)
 	_, err = io.Copy(f, file)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
-	return f, nil
+	return f, fname, nil
 }
 
 func (fs *FileService) FullPath(fname string, uploadsSubDir string) string {

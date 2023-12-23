@@ -1,0 +1,670 @@
+swagger: "2.0"
+schemes:
+  - "http"
+produces:
+  - "application/json"
+consumes:
+  - "application/json"
+  - "multipart/form-data"
+basePath: "/api/v1"
+info:
+  title: "Meet REST API"
+  version: "1.0"
+  description: "REST API сервиса Meet"
+tags:
+  - name: "Authorization"
+    description: "Эндпоинты авторизации"
+  - name: "User"
+    description: "Эндпоинты пользователей"
+  - name: "Questionnaire"
+    description: "Эндпоинты анкет"
+  - name: "Message"
+    description: "Эндпоинты сообщений"
+securityDefinitions:
+  ApiKeyAuth:
+    type: apiKey
+    in: header
+    name: Authorization
+
+definitions:
+  ValidationErrorResponse:
+    type: "object"
+    description: "Ошибки валидации"
+    required: ["errors"]
+    properties: 
+      errors:
+        type: array
+        items:
+          type: "object"
+          description: "Ошибка валидации"
+          required: ["subject", "message"]
+          properties: 
+            subject:
+              type: string
+              description: "То, что валидировалось"
+            message:
+              type: string
+              description: "Ошибка валидации"
+  
+  Credentials:
+    type: "object"
+    description: "Параметры для входа пользователя в систему"
+    required: ["login", "password"]
+    properties: 
+      login:
+        type: "string"
+        description: "Логин пользователя"
+      password:
+        type: "string"
+        description: "Пароль пользователя"
+    example:
+      login: "elaxer"
+      password: "123456"
+
+  User:
+    type: "object"
+    description: "Пользователь сервиса"
+    required: ["created_at", "login"]
+    properties: 
+      id:
+        type: "integer"
+        description: "Идентификатор"
+        readOnly: true
+      created_at:
+        type: "string"
+        format: "date-time"
+        description: "Дата и время создания"
+        readOnly: true
+      login:
+        type: "string"
+        description: "Логин пользователя"
+  
+  Questionnaire:
+    type: "object"
+    description: "Анкета пользователя"
+    required: ["name", "birth_date", "gender", "orientaion", "meeting_purpose", "age_range", "country", "city", "is_active"]
+    properties: 
+      id:
+        type: "integer"
+        description: "Идентификатор"
+        readOnly: true
+      created_at:
+        type: "string"
+        format: "date-time"
+        description: "Дата и время создания"
+        readOnly: true
+      user_id:
+        type: "integer"
+        description: "Идентификатор пользователя анкеты"
+        readOnly: true
+      name:
+        type: "string"
+        description: "Имя пользователя"
+        example: "Иван"
+      birth_date:
+        type: "string"
+        format: "date"
+        description: "Дата рождения пользователя"
+        example: "2001-03-24"
+      gender:
+        type: "string"
+        description: "Пол пользователя"
+        enum: ["male", "female"]
+        example: "male"
+      orientation:
+        type: "string"
+        description: "Сексуальная ориентация пользователя"
+        enum: ["hetero", "bi", "homo"]
+        example: "hetero"
+      meeting_purpose:
+        type: "string"
+        description: "Цель знакомства пользователя"
+        enum: ["friendship", "relationship", "sex"]
+        example: "relationship"
+      age_range:
+        type: "object"
+        description: "Возрастные предпочтения пользователя"
+        required: ["min", "max"]
+        properties:
+          min:
+            type: "integer"
+            description: "Минимальный возраст"
+            example: 18
+          max:
+            type: "integer"
+            description: "Максимальный возраст"
+            example: 25
+      country:
+        type: "string"
+        description: "Страна, где находится пользователь"
+        example: "Россия"
+      city:
+        type: "string"
+        description: "Город, где находится пользователь"
+        example: "Москва"
+      about:
+        type: "string"
+        description: "Описание анкеты пользователя"
+      is_active:
+        type: "boolean"
+        description: "Активна ли анкета пользователя. Если неактивна, то она не будет появляться у других пользователей при поиске пары"
+        example: true
+      photos:
+        type: "array"
+        readOnly: true
+        description: "Фотографии анкеты пользователя"
+        items: 
+          $ref: "#/definitions/QuestionnairePhoto"
+
+  QuestionnairePhoto:
+    type: "object"
+    description: "Фотография анкеты пользователя"
+    properties: 
+      id:
+        type: "integer"
+        description: "Идентификатор"
+        readOnly: true
+      created_at:
+        type: "string"
+        format: "date-time"
+        description: "Дата и время создания"
+        readOnly: true
+  
+  Direction:
+    type: "object"
+    description: "Содержит два поля: идентификатор отправителя и идентификатор получателя"
+    required: ["from_id", "to_id"]
+    properties: 
+      from_id:
+        type: "integer"
+        description: "Идентификатор отправителя"
+        readOnly: true
+      to_id:
+        type: "integer"
+        description: "Идентификатор получателя"
+
+  Assessment:
+    type: "object"
+    description: "Данные оценивания анкеты"
+    required: ["user_id", "decision"]
+    properties:
+      created_at:
+        type: "string"
+        format: "date-time"
+        description: "Дата и время создания"
+        readOnly: true
+      users_direction:
+        $ref: "#/definitions/Direction"
+      decision:
+        type: "string"
+        description: "Решение оценивания"
+        enum: ["like", "dislike"]
+      message:
+        type: "string"
+        description: "Сообщение пользователю при оценивании"
+      is_mutual:
+        type: "boolean"
+        description: "True если пользователь, которого оценили, уже оценил пользователя ранее"
+        readOnly: true
+
+  Message:
+    type: "object"
+    description: "Сообщение от пользователя к пользователю"
+    required: ["users_direction", "text", "is_readed"]
+    properties: 
+      id:
+        type: "integer"
+        description: "Идентификатор"
+        readOnly: true
+      created_at:
+        type: "string"
+        format: "date-time"
+        description: "Дата и время создания"
+        readOnly: true
+      users_direction:
+        $ref: "#/definitions/Direction"
+      text:
+        type: "string"
+        description: "Текст сообщения"
+      is_readed:
+        type: "boolean"
+        description: "Прочитано ли сообщение получателем"
+        default: "false"
+        readOnly: true
+
+paths:
+  /authenticate:
+    post:
+      summary: "Аутентификация пользователя в API"
+      description: "Аутентифицирует пользователя в сервисе и возвращает токен доступа"
+      tags: ["Authorization"]
+      consumes: ["application/json"]
+      produces: ["application/json"]
+      parameters:
+        - name: "body"
+          in: "body"
+          description: "Логин и пароль пользователя"
+          schema:
+            $ref: "#/definitions/Credentials"
+      responses:
+        200:
+          description: "Аутентификация прошла успешно"
+          schema:
+            type: "object"
+            description: "Тело ответа на запрос аутентификации"
+            required: ["access_token"]
+            properties:
+              access_token:
+                type: "string"
+                description: "Токен доступа пользователя"
+        400:
+          description: "Некорректный запрос"
+        401:
+          description: "Неверный логин или пароль"
+
+  /users:
+    post:
+      summary: "Регистрация пользователя"
+      description: "Регистрирует пользователя в сервисе"
+      tags: ["User"]
+      consumes: ["application/json"]
+      produces: ["application/json"]
+      parameters:
+        - name: "body"
+          in: "body"
+          description: "Логин и пароль пользователя"
+          schema:
+            $ref: "#/definitions/Credentials"
+      responses:
+        201:
+          description: "Пользователь зарегестрирован"
+          schema:
+            $ref: "#/definitions/User"
+        400:
+          description: "Некорректный запрос"
+        409:
+          description: "Указанный логин уже занят"
+        422:
+          description: "Ошибка валидации"
+          schema:
+            $ref: "#/definitions/ValidationErrorResponse"
+  /users/me:
+    get:
+      summary: "Получить пользователя"
+      description: "Получить информацию о своем пользователе"
+      tags: ["User"]
+      consumes: ["application/json"]
+      produces: ["application/json"]
+      security:
+        - ApiKeyAuth: []
+      responses:
+        200:
+          description: "Информация о пользователе"
+          schema:
+            $ref: "#/definitions/User"
+    delete:
+      summary: "Удалить свой аккаунт"
+      description: "Удалить свой аккаунт"
+      tags: ["User"]
+      consumes: ["application/json"]
+      produces: ["application/json"]
+      security:
+        - ApiKeyAuth: []
+      responses:
+        200:
+          description: "Информация о пользователе"
+          schema:
+            $ref: "#/definitions/User"
+  /passwords/me:
+    put:
+      summary: "Изменить пароль пользователя"
+      description: "Изменить пароль пользователя на новый"
+      tags: ["User"]
+      consumes: ["application/json"]
+      produces: ["application/json"]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: "body"
+          in: "body"
+          description: "Новый пароль пользователя"
+          schema:
+            type: "object"
+            required: ["password"]
+            properties:
+              password:
+                type: "string"
+                description: "Новый пароль пользователя"
+      responses:
+        204:
+          description: "Пароль изменен"
+          schema:
+            $ref: "#/definitions/User"
+        400:
+          description: "Некорректный запрос"
+        422:
+          description: "Ошибка валидации"
+          schema:
+            $ref: "#/definitions/ValidationErrorResponse"
+
+  /questionnaires/me:
+    get:
+      summary: "Получить анкету пользователя"
+      description: "Получить анкету пользователя"
+      tags: ["Questionnaire"]
+      consumes: ["application/json"]
+      produces: ["application/json"]
+      security:
+        - ApiKeyAuth: []
+      responses:
+        200:
+          description: "Анкета пользователя"
+          schema:
+            $ref: "#/definitions/Questionnaire"
+        404:
+          description: "У пользователя нет анкеты"
+    post:
+      summary: "Создать анкету пользователя"
+      description: "Создать анкету пользователя"
+      tags: ["Questionnaire"]
+      consumes: ["application/json"]
+      produces: ["application/json"]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: "body"
+          in: "body"
+          description: "Данные анкеты пользователя"
+          schema:
+            $ref: "#/definitions/Questionnaire"
+      responses:
+        201:
+          description: "Анкета создана"
+          schema:
+            $ref: "#/definitions/Questionnaire"
+        400:
+          description: "Некорректный запрос"
+        409:
+          description: "Пользователь уже имеет анкету"
+        422:
+          description: "Ошибка валидации"
+          schema:
+            $ref: "#/definitions/ValidationErrorResponse"
+    put:
+      summary: "Обновить анкету пользователя"
+      description: "Обновить анкету пользователя"
+      tags: ["Questionnaire"]
+      consumes: ["application/json"]
+      produces: ["application/json"]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: "body"
+          in: "body"
+          description: "Данные анкеты пользователя"
+          schema:
+            $ref: "#/definitions/Questionnaire"
+      responses:
+        200:
+          description: "Анкета обновлена"
+          schema:
+            $ref: "#/definitions/Questionnaire"
+        400:
+          description: "Некорректный запрос"
+        404:
+          description: "Пользователь не имеет анкеты"
+        422:
+          description: "Ошибка валидации"
+          schema:
+            $ref: "#/definitions/ValidationErrorResponse"
+  /users/me/questionnaires:
+    get:
+      summary: "Анкеты для пользователя"
+      description: "Подобрать анкеты для пользователя"
+      tags: ["Questionnaire"]
+      consumes: ["application/json"]
+      produces: ["application/json"]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: "limit"
+          in: "query"
+          type: "integer"
+          required: false
+          default: 10
+        - name: "offset"
+          in: "query"
+          type: "integer"
+          required: false
+          default: 0
+      responses:
+        200:
+          description: "Список анкет для пользователя"
+          schema:
+            type: "array"
+            items: 
+              $ref: "#/definitions/Questionnaire"
+  /users/me/couples:
+    get:
+      summary: "Пары пользователя"
+      description: "Список анкет, с которыми пользователь состоит в паре"
+      tags: ["Questionnaire"]
+      consumes: ["application/json"]
+      produces: ["application/json"]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: "limit"
+          in: "query"
+          type: "integer"
+          required: false
+          default: 10
+        - name: "offset"
+          in: "query"
+          type: "integer"
+          required: false
+          default: 0
+      responses:
+        200:
+          description: "Список пар пользователя"
+          schema:
+            type: "array"
+            items: 
+              $ref: "#/definitions/Questionnaire"
+  /assessments:
+    post:
+      summary: "Оценить анкету"
+      description: "Оценить анкету. Результатом оценивания может быть лайк или дизлайк"
+      tags: ["Questionnaire"]
+      consumes: ["application/json"]
+      produces: ["application/json"]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: "body"
+          in: "body"
+          description: "Данные оценивания"
+          schema:
+            $ref: "#/definitions/Assessment"
+      responses:
+        201:
+          description: "Оценивание произошло успешно"
+          schema:
+            $ref: "#/definitions/Assessment"
+        400:
+          description: "Некорректный запрос"
+        404:
+          description: "Не удалось найти пользователя"
+        409:
+          description: "Пользователь либо уже оценен, либо анкета пользователя не подходит"
+        422:
+          description: "Ошибка валидации"
+          schema:
+            $ref: "#/definitions/ValidationErrorResponse"
+  /questionnaires/me/photos:
+    post:
+      summary: "Загрузить фотографию анкеты"
+      description: "Загрузить фотографию анкеты пользователя"
+      tags: ["Questionnaire"]
+      consumes: ["multipart/form-data"]
+      produces: ["application/json"]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: "photo"
+          in: "formData"
+          description: "Загружаемый файл фотографии пользователя"
+          type: "file"
+          format: "binary"
+          required: true
+          collectionFormat: "multi"
+      responses:
+        201:
+          description: "Фотография загружена"
+          schema:
+            $ref: "#/definitions/QuestionnairePhoto"
+        400:
+          description: "Некорректный запрос"
+        403:
+          description: "Превышен лимит загрузки фотографий на одну анкету"
+        415:
+          description: "Неверный формат загружаемого файла"
+  /questionnaires/me/photos/{id}:
+    delete:
+      summary: "Удалить фотографию анкеты"
+      description: "Удалить фотографию анкеты пользователя по ее идентификатору"
+      tags: ["Questionnaire"]
+      consumes: ["application/json"]
+      produces: ["application/json"]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: "id"
+          in: "path"
+          description: "Идентификатор фотографии анкеты пользователя"
+          type: "integer"
+          required: true
+      responses:
+        200:
+          description: "Удаленная фотография"
+          schema:
+            $ref: "#/definitions/QuestionnairePhoto"
+        404:
+          description: "Не удалось найти фотографию анкеты пользователя"
+  /questionnaires/me/photos/{id}/content:
+    get:
+      summary: "Получить файл фотографии анкеты"
+      description: "Получить файл фотографии анкеты пользователя по ее идентификатору"
+      tags: ["Questionnaire"]
+      consumes: ["application/json"]
+      produces: ["image/jpeg", "image/jpg", "image/png"]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: "id"
+          in: "path"
+          description: "Идентификатор фотографии анкеты пользователя"
+          type: "integer"
+          required: true
+      responses:
+        200:
+          description: "Файл фотографии анкеты"
+          schema:
+            type: "file"
+        404:
+          description: "Не удалось найти фотографию анкеты пользователя"
+  
+  /users/{id}/messages:
+    get:
+      summary: "Получить диалог партнеров"
+      description: "Получить список сообщений партнеров"
+      tags: ["Message"]
+      consumes: ["application/json"]
+      produces: ["application/json"]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: "id"
+          in: "path"
+          description: "Идентификатор партнера"
+          type: "integer"
+          required: true
+        - name: "limit"
+          in: "query"
+          type: "integer"
+          required: false
+          default: 100
+        - name: "offset"
+          in: "query"
+          type: "integer"
+          required: false
+          default: 0
+      responses:
+        200:
+          description: "Сообщения партнеров"
+          schema:
+            type: "array"
+            items: 
+              $ref: "#/definitions/Message"
+        404:
+          description: "Не удалось найти партнера"
+  /messages:
+    post:
+      summary: "Отправить сообщение партнеру"
+      description: "Отправить сообщение партнеру"
+      tags: ["Message"]
+      consumes: ["application/json"]
+      produces: ["application/json"]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: "body"
+          in: "body"
+          description: "Сообщение партнеру"
+          schema:
+            $ref: "#/definitions/Message"
+      responses:
+        201:
+          description: "Сообщение партнеру отправлено"
+          schema:
+            $ref: "#/definitions/Message"
+        400:
+          description: "Некорректный запрос"
+        404:
+          description: "Не удалось найти партнера"
+        422:
+          description: "Ошибка валидации"
+          schema:
+            $ref: "#/definitions/ValidationErrorResponse"
+  /messages/{id}:
+    put:
+      summary: "Прочитать сообщение"
+      description: "Редактировать сообщение. Так как к редактированию доступно одно поле, то де-факто эндпоинт выполняет операцию прочтения сообщения"
+      tags: ["Message"]
+      consumes: ["application/json"]
+      produces: ["application/json"]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: "body"
+          in: "body"
+          description: "Изменить сообщение партнера"
+          schema:
+            type: "object"
+            properties: 
+              is_readed:
+                type: "boolean"
+                description: "Прочитано ли сообщение"
+                enum: ["true"]
+      responses:
+        200:
+          description: "Сообщение прочитано"
+          schema:
+            $ref: "#/definitions/Message"
+        400:
+          description: "Некорректный запрос"
+        404:
+          description: "Не удалось найти сообщение"
+        422:
+          description: "Невозможно сделать сообщение непрочитанным"
+            

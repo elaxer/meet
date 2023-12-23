@@ -58,11 +58,11 @@ func (ur *userDBRepository) HasByLogin(login string) (bool, error) {
 }
 
 func (ur *userDBRepository) Add(user *model.User) error {
+	user.BeforeAdd()
+
 	if err := user.Validate(); err != nil {
 		return err
 	}
-
-	user.BeforeAdd()
 
 	ib := sqlbuilder.NewInsertBuilder()
 	sql, args := ib.InsertInto(userTableName).
@@ -76,17 +76,16 @@ func (ur *userDBRepository) Add(user *model.User) error {
 }
 
 func (ur *userDBRepository) Update(user *model.User) error {
+	user.BeforeUpdate()
+
 	if err := user.Validate(); err != nil {
 		return err
 	}
-
-	user.BeforeUpdate()
 
 	ub := sqlbuilder.NewUpdateBuilder()
 	sql, args := ub.Update(userTableName).
 		Set(
 			ub.Assign("updated_at", user.UpdatedAt),
-			ub.Assign("login", user.Login),
 			ub.Assign("password_hash", user.PasswordHash),
 			ub.Assign("is_blocked", user.IsBlocked),
 		).

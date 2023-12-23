@@ -12,6 +12,7 @@ import (
 	"meet/internal/app/service"
 	"net/http"
 
+	"github.com/gorilla/mux"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 )
@@ -43,15 +44,24 @@ func init() {
 
 	repositories = repository.NewRepositoryContainer(db)
 	services = service.NewServiceContainer(cfg, repositories)
-	controllers = controller.NewControllerContainer(repositories, services)
+	controllers = controller.NewControllerContainer(cfg, repositories, services)
 	middlewares = middleware.NewMiddlewareContainer(services)
 }
 
 func main() {
-	r := router.New()
+	r := mux.NewRouter()
 	router.Configure(r, controllers, middlewares)
 
-	http.Handle("/", r)
+	http.Handle(
+		"/",
+		middleware.LogMiddleware(
+			middleware.CORSMiddleware(
+				middleware.ContentLength(
+					middleware.FileSize(r),
+				),
+			),
+		),
+	)
 	http.ListenAndServe(cfg.ServerConfig.Port, nil)
 }
 

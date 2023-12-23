@@ -4,48 +4,61 @@ import (
 	"errors"
 	"meet/internal/app/model"
 	"meet/internal/app/repository"
+	"time"
+)
 
-	"github.com/guregu/null"
+var (
+	ErrAlreadyAssessed            = errors.New("оценка уже произведена")
+	ErrQuestionnairesIncompatible = errors.New("анкеты несовместимы")
 )
 
 type AssessmentService struct {
-	assessmentRepository repository.AssessmentRepository
+	assessmentRepository    repository.AssessmentRepository
+	questionnaireRepository repository.QuestionnaireRepository
 }
 
 func newAssessmentService(
 	assessmentRepository repository.AssessmentRepository,
+	questionnaireRepository repository.QuestionnaireRepository,
 ) *AssessmentService {
-	return &AssessmentService{assessmentRepository}
+	return &AssessmentService{assessmentRepository, questionnaireRepository}
 }
 
-func (as *AssessmentService) Assess(usersDirection model.Direction, decision model.Decision, message null.String) (bool, error) {
-	a := &model.Assessment{
-		UsersDirection: usersDirection,
-		Decision:       decision,
-		Message:        message,
-	}
-	if err := a.Validate(); err != nil {
-		return false, err
+func (as *AssessmentService) Assess(assessment *model.Assessment, currentTime time.Time) error {
+	if err := assessment.Validate(); err != nil {
+		return err
 	}
 
-	hasLike, err := as.assessmentRepository.HasByDirection(usersDirection)
+	hasAssessment, err := as.assessmentRepository.HasByDirection(assessment.UsersDirection)
 	if err != nil {
-		return false, err
+		return err
 	}
-	if hasLike {
-		return false, errors.New("оценка уже произведена")
-	}
-
-	if err = as.assessmentRepository.Add(a); err != nil {
-		return false, err
+	if hasAssessment {
+		return ErrAlreadyAssessed
 	}
 
-	isMutual, err := as.assessmentRepository.HasByDirection(usersDirection.NewReversed())
+	qFrom, err := as.questionnaireRepository.GetByUserID(assessment.UsersDirection.FromID)
 	if err != nil {
-		return false, nil
+		return err
 	}
 
-	return isMutual, nil
+	qTo, err := as.questionnaireRepository.GetByUserID(assessment.UsersDirection.FromID)
+	if err != nil {
+		return err
+	}
+
+	if !qFrom.CheckCompatibilities(qTo, currentTime) {
+		return ErrQuestionnairesIncompatible
+	}
+
+	assessment.IsMutual, err = as.assessmentRepository.HasByDirection(assessment.UsersDirection.NewReversed())
+	if err != nil {
+		return err
+	}
+
+	err = as.assessmentRepository.Add(assessment)
+
+	return err
 }
 
 func (as *AssessmentService) IsCouple(usersDirection model.Direction) (bool, error) {
