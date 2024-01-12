@@ -1,8 +1,12 @@
 package model
 
 import (
+	"database/sql/driver"
+	"encoding/json"
 	"fmt"
 	"time"
+
+	"github.com/guregu/null"
 )
 
 const (
@@ -11,24 +15,33 @@ const (
 )
 
 var (
-	ErrAgeMin = NewValidationError("age", "возраст должен быть не менее %d лет", AgeMin)
-	ErrAgeMax = NewValidationError("age", "возраст должен быть не менее %d лет", AgeMax)
+	errAgeMin = NewValidationError("age", "возраст должен быть не менее %d лет", AgeMin)
+	errAgeMax = NewValidationError("age", "возраст должен быть не менее %d лет", AgeMax)
 
-	ErrAgeRangeInvalid = NewValidationError("age_range", "минимальный возраст не может быть больше максимального возраста")
+	errAgeRangeInvalid = NewValidationError("age_range", "минимальный возраст не может быть больше максимального возраста")
 )
 
-type BirthDate time.Time
+// todo
+type BirthDate struct{ null.Time }
 
 func NewBirthDate(year int, month time.Month, day int) BirthDate {
-	return BirthDate(time.Date(year, month, day, 0, 0, 0, 0, time.UTC))
+	return BirthDateFrom(time.Date(year, month, day, 0, 0, 0, 0, time.UTC))
+}
+
+func BirthDateFrom(date time.Time) BirthDate {
+	return BirthDate{Time: null.TimeFrom(date)}
 }
 
 func (bd BirthDate) Age(currentTime time.Time) int {
-	birthDate := time.Time(bd)
+	if !bd.Valid {
+		return 0
+	}
 
-	age := currentTime.Year() - birthDate.Year()
+	birthDate := bd.Time
 
-	if currentTime.YearDay() < birthDate.YearDay() {
+	age := currentTime.Year() - birthDate.Time.Year()
+
+	if currentTime.YearDay() < birthDate.Time.YearDay() {
 		age--
 	}
 
@@ -36,7 +49,7 @@ func (bd BirthDate) Age(currentTime time.Time) int {
 }
 
 func (bd BirthDate) String() string {
-	return time.Time(bd).Format("2006-01-02")
+	return time.Time(bd.Time.Time).Format("2006-01-02")
 }
 
 func (bd BirthDate) MarshalJSON() ([]byte, error) {
@@ -45,14 +58,33 @@ func (bd BirthDate) MarshalJSON() ([]byte, error) {
 	return []byte(j), nil
 }
 
+func (bd *BirthDate) UnmarshalJSON(data []byte) error {
+	var bdStr string
+	err := json.Unmarshal(data, &bdStr)
+	if err != nil {
+		return err
+	}
+
+	bdTime, err := time.Parse("2006-01-02", bdStr)
+	if err != nil {
+		return err
+	}
+
+	*bd = BirthDateFrom(bdTime)
+
+	return nil
+}
+
 func (bd BirthDate) Validate(currentTime time.Time) error {
 	errs := &ValidationErrors{}
 
-	if bd.Age(currentTime) < AgeMin {
-		errs.Append(ErrAgeMin)
+	age := bd.Age(currentTime)
+
+	if age < AgeMin {
+		errs.Append(errAgeMin)
 	}
-	if bd.Age(currentTime) > AgeMax {
-		errs.Append(ErrAgeMax)
+	if age > AgeMax {
+		errs.Append(errAgeMax)
 	}
 
 	if errs.Empty() {
@@ -62,22 +94,45 @@ func (bd BirthDate) Validate(currentTime time.Time) error {
 	return errs
 }
 
+func (bd BirthDate) Value() (driver.Value, error) {
+	return bd.Time, nil
+}
+
+func (b *BirthDate) Scan(value interface{}) error {
+	switch v := value.(type) {
+	case time.Time:
+		*b = BirthDateFrom(v)
+	case nil:
+		b = nil
+	default:
+		return fmt.Errorf("неподдерживаемый тип для сканирования: %T", value)
+	}
+
+	return nil
+}
+
 type AgeRange struct {
-	From int `json:"from"`
-	To   int `json:"to"`
+	Min null.Int `json:"min"`
+	Max null.Int `json:"max"`
+}
+
+func NewAgeRange(min, max int) AgeRange {
+	return AgeRange{null.IntFrom(int64(min)), null.IntFrom(int64(max))}
 }
 
 func (ar *AgeRange) Validate() error {
 	errs := &ValidationErrors{}
 
-	if ar.From < AgeMin {
-		errs.Append(ErrAgeMin)
+	if ar.Min.Valid && ar.Min.Int64 < AgeMin {
+		errs.Append(errAgeMin)
 	}
-	if ar.To > AgeMax {
-		errs.Append(ErrAgeMax)
+
+	if ar.Max.Valid && ar.Max.Int64 > AgeMax {
+		errs.Append(errAgeMin)
 	}
-	if ar.From > ar.To {
-		errs.Append(ErrAgeRangeInvalid)
+
+	if ar.Min.Valid && ar.Max.Valid && ar.Min.Int64 > ar.Max.Int64 {
+		errs.Append(errAgeRangeInvalid)
 	}
 
 	if errs.Empty() {
@@ -88,5 +143,5 @@ func (ar *AgeRange) Validate() error {
 }
 
 func (ar *AgeRange) InRange(age int) bool {
-	return age >= ar.From && age <= ar.To
+	return age >= int(ar.Min.Int64) && age <= int(ar.Max.Int64)
 }

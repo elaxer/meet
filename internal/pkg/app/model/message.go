@@ -5,8 +5,8 @@ import "strings"
 const messageLenMax = 2048
 
 var (
-	ErrMessageTextEmpty   = NewValidationError("text", "текст сообщения не может быть пустым")
-	ErrMessageTextTooLong = NewValidationError("text", "длина текста сообщения не должна превышать %d символов", messageLenMax)
+	errMessageTextEmpty   = NewValidationError("text", "текст сообщения не может быть пустым")
+	errMessageTextTooLong = NewValidationError("text", "длина текста сообщения не должна превышать %d символов", messageLenMax)
 )
 
 type Message struct {
@@ -42,10 +42,10 @@ func (m *Message) Validate() error {
 		errs.Append(err)
 	}
 	if strings.TrimSpace(m.Text) == "" {
-		errs.Append(ErrMessageTextEmpty)
+		errs.Append(errMessageTextEmpty)
 	}
 	if len(m.Text) > messageLenMax {
-		errs.Append(ErrMessageTextTooLong)
+		errs.Append(errMessageTextTooLong)
 	}
 
 	if errs.Empty() {

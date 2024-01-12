@@ -1,9 +1,12 @@
 package service
 
 import (
+	"context"
+	"database/sql"
 	"errors"
 	"meet/internal/pkg/app/model"
 	"meet/internal/pkg/app/repository"
+	"meet/internal/pkg/app/repository/transaction"
 	"time"
 )
 
@@ -12,24 +15,32 @@ var (
 	ErrQuestionnairesIncompatible = errors.New("анкеты несовместимы")
 )
 
-type AssessmentService struct {
+type AssessmentService interface {
+	Assess(assessment *model.Assessment) error
+}
+
+type assessmentService struct {
+	db                      *sql.DB
 	assessmentRepository    repository.AssessmentRepository
+	coupleRepository        repository.CoupleRepository
 	questionnaireRepository repository.QuestionnaireRepository
 }
 
-func newAssessmentService(
+func NewAssessmentService(
+	db *sql.DB,
 	assessmentRepository repository.AssessmentRepository,
+	coupleRepository repository.CoupleRepository,
 	questionnaireRepository repository.QuestionnaireRepository,
-) *AssessmentService {
-	return &AssessmentService{assessmentRepository, questionnaireRepository}
+) AssessmentService {
+	return &assessmentService{db, assessmentRepository, coupleRepository, questionnaireRepository}
 }
 
-func (as *AssessmentService) Assess(assessment *model.Assessment, currentTime time.Time) error {
+func (as *assessmentService) Assess(assessment *model.Assessment) error {
 	if err := assessment.Validate(); err != nil {
 		return err
 	}
 
-	hasAssessment, err := as.assessmentRepository.HasByDirection(assessment.UsersDirection)
+	hasAssessment, err := as.assessmentRepository.Has(assessment.UsersDirection)
 	if err != nil {
 		return err
 	}
@@ -41,36 +52,53 @@ func (as *AssessmentService) Assess(assessment *model.Assessment, currentTime ti
 	if err != nil {
 		return err
 	}
+	if !qFrom.IsReady() {
+		return ErrQuestionnaireState
+	}
 
 	qTo, err := as.questionnaireRepository.GetByUserID(assessment.UsersDirection.FromID)
 	if err != nil {
 		return err
 	}
 
-	if !qFrom.CheckCompatibilities(qTo, currentTime) {
+	if !qFrom.CheckCompatibilities(qTo, time.Now()) {
 		return ErrQuestionnairesIncompatible
 	}
 
-	assessment.IsMutual, err = as.assessmentRepository.HasByDirection(assessment.UsersDirection.NewReversed())
+	reversedAssessment, err := as.assessmentRepository.Get(assessment.UsersDirection.NewReversed())
+	if err != nil && !errors.Is(err, repository.ErrNotFound) {
+		return err
+	}
+
+	if reversedAssessment == nil {
+		err := as.assessmentRepository.Add(context.Background(), assessment)
+
+		return err
+	}
+
+	ctx, tx, err := transaction.BeginTx(context.Background(), as.db)
 	if err != nil {
 		return err
 	}
 
-	err = as.assessmentRepository.Add(assessment)
+	assessment.IsMutual = true
+	if err := as.assessmentRepository.Remove(ctx, reversedAssessment); err != nil {
+		tx.Rollback()
 
-	return err
-}
-
-func (as *AssessmentService) IsCouple(usersDirection model.Direction) (bool, error) {
-	has, err := as.assessmentRepository.HasByDirection(usersDirection)
-	if err != nil {
-		return false, err
-	}
-	if !has {
-		return false, nil
+		return err
 	}
 
-	has, err = as.assessmentRepository.HasByDirection(usersDirection)
+	couple := new(model.Couple)
+	couple.UsersDirection.FromID = assessment.UsersDirection.FromID
+	couple.UsersDirection.ToID = assessment.UsersDirection.ToID
 
-	return has, err
+	if err := as.coupleRepository.Add(ctx, couple); err != nil {
+		tx.Rollback()
+
+		return err
+	}
+
+	tx.Commit()
+
+	return nil
 }

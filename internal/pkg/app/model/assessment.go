@@ -16,7 +16,7 @@ const (
 const assessmentMessageLenMax = 2048
 
 var (
-	ErrAssessmentMessageTooLong = NewValidationError("message", "длина сообщения не должна превышать %d символов", assessmentMessageLenMax)
+	errAssessmentMessageTooLong = NewValidationError("message", "длина сообщения не должна превышать %d символов", assessmentMessageLenMax)
 )
 
 type Assessment struct {
@@ -49,7 +49,7 @@ func (a *Assessment) Validate() error {
 		errs.Append(err)
 	}
 	if a.Message.Valid && len(strings.TrimSpace(a.Message.String)) > messageLenMax {
-		errs.Append(ErrAssessmentMessageTooLong)
+		errs.Append(errAssessmentMessageTooLong)
 	}
 
 	if errs.Empty() {

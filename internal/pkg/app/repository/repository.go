@@ -1,11 +1,9 @@
 package repository
 
 import (
-	"database/sql"
+	"context"
 	"errors"
-	"meet/internal/pkg/app"
-
-	"github.com/huandu/go-sqlbuilder"
+	"meet/internal/pkg/app/model"
 )
 
 var (
@@ -13,56 +11,61 @@ var (
 	ErrDuplicate = errors.New("в репозитории уже сущетсвует модель с таким идентификатором")
 )
 
-type RepositoryContainer struct {
-	assessmentRepository    AssessmentRepository
-	messageRepository       MessageRepository
-	photoRepository         PhotoRepository
-	questionnaireRepository QuestionnaireRepository
-	userRepository          UserRepository
+type collectionRepository[T model.Model] struct {
+	models []T
 }
 
-func NewRepositoryContainer(db *sql.DB) *RepositoryContainer {
-	pr := newPhotoRepository(db)
-	return &RepositoryContainer{
-		assessmentRepository:    newAssessmentRepository(db),
-		messageRepository:       newMessageRepository(db),
-		photoRepository:         pr,
-		userRepository:          newUserRepository(db),
-		questionnaireRepository: newQuestionnaireRepository(db, pr),
+func (cr *collectionRepository[T]) Add(ctx context.Context, model T) error {
+	model.BeforeAdd()
+
+	if err := model.Validate(); err != nil {
+		return err
 	}
+
+	cr.models = append(cr.models, model)
+
+	return nil
 }
 
-func (rc *RepositoryContainer) Assessment() AssessmentRepository {
-	return rc.assessmentRepository
+func (cr *collectionRepository[T]) Update(model T) error {
+	if !cr.has(model) {
+		return ErrNotFound
+	}
+
+	model.BeforeUpdate()
+
+	err := model.Validate()
+
+	return err
 }
 
-func (rc *RepositoryContainer) Message() MessageRepository {
-	return rc.messageRepository
+func (cr *collectionRepository[T]) Remove(model T) error {
+	if !cr.has(model) {
+		return ErrNotFound
+	}
+
+	var index int
+	for i, m := range cr.models {
+		if m == model {
+			index = i
+		}
+	}
+
+	if err := model.Validate(); err != nil {
+		return err
+	}
+
+	cr.models = append(cr.models[:index], cr.models[index+1:]...)
+
+	return nil
 }
 
-func (rc *RepositoryContainer) Photo() PhotoRepository {
-	return rc.photoRepository
+func (cr *collectionRepository[T]) has(model T) bool {
+	for _, m := range cr.models {
+		if m == model {
+			return true
+		}
+	}
+
+	return false
 }
-
-func (rc *RepositoryContainer) Questionnaire() QuestionnaireRepository {
-	return rc.questionnaireRepository
-}
-
-func (rc *RepositoryContainer) User() UserRepository {
-	return rc.userRepository
-}
-
-// Реализует интерфейс Repository
-type dbRepository struct {
-	db *sql.DB
-}
-
-func (r *dbRepository) createSelectBuilder() *sqlbuilder.SelectBuilder {
-	sb := sqlbuilder.NewSelectBuilder()
-	sb.SetFlavor(app.SQLBuilderFlavor)
-
-	return sb
-}
-
-// TODO more createBuilder
-// TODO rename createSelectBuilder

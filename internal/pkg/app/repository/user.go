@@ -1,114 +1,45 @@
 package repository
 
 import (
-	"database/sql"
-	"meet/internal/pkg/app"
 	"meet/internal/pkg/app/model"
-
-	"github.com/huandu/go-sqlbuilder"
 )
 
-const userTableName = "users"
-
-type UserRepository interface {
-	GetByLogin(login string) (*model.User, error)
-	HasByLogin(login string) (bool, error)
-	Add(user *model.User) error
-	Update(user *model.User) error
-	Remove(user *model.User) error
+type userRepository struct {
+	collectionRepository[*model.User]
 }
 
-type userDBRepository struct {
-	dbRepository
+func NewUserRepository() UserRepository {
+	return &userRepository{}
 }
 
-func newUserRepository(db *sql.DB) UserRepository {
-	ur := new(userDBRepository)
-	ur.dbRepository.db = db
-
-	return ur
-}
-
-func (ur *userDBRepository) GetByLogin(login string) (*model.User, error) {
-	sb := ur.createSelectBuilder()
-
-	sql, args := sb.Select("*").From(userTableName).Where(sb.Equal("login", login)).Limit(1).Build()
-
-	u := new(model.User)
-
-	row := ur.db.QueryRow(sql, args...)
-	err := row.Scan(u.GetFieldPointers()...)
-
-	return u, err
-}
-
-func (ur *userDBRepository) HasByLogin(login string) (bool, error) {
-	sb := ur.createSelectBuilder()
-
-	sql, args := sb.Select("*").From(userTableName).Where(sb.Equal("login", login)).Limit(1).Build()
-
-	res, err := ur.db.Exec(sql, args...)
-	if err != nil {
-		return false, err
+func (ur *userRepository) GetByLogin(login string) (*model.User, error) {
+	for _, u := range ur.models {
+		if u.Login == login {
+			return u, nil
+		}
 	}
 
-	ra, err := res.RowsAffected()
-
-	return ra > 0, err
+	return nil, ErrNotFound
 }
 
-func (ur *userDBRepository) Add(user *model.User) error {
-	user.BeforeAdd()
-
-	if err := user.Validate(); err != nil {
-		return err
+func (ur *userRepository) GetByTgID(id int64) (*model.User, error) {
+	for _, u := range ur.models {
+		if u.TgID.Valid && u.TgID.Int64 == id {
+			return u, nil
+		}
 	}
 
-	ib := sqlbuilder.NewInsertBuilder()
-	sql, args := ib.InsertInto(userTableName).
-		Cols("created_at", "login", "password_hash", "is_blocked").
-		Values(user.CreatedAt, user.Login, user.PasswordHash, user.IsBlocked).
-		BuildWithFlavor(app.SQLBuilderFlavor)
-
-	_, err := ur.db.Exec(sql, args...)
-
-	return err
+	return nil, ErrNotFound
 }
 
-func (ur *userDBRepository) Update(user *model.User) error {
-	user.BeforeUpdate()
+func (ur *userRepository) HasByTgID(id int64) (bool, error) {
+	u, _ := ur.GetByTgID(id)
 
-	if err := user.Validate(); err != nil {
-		return err
-	}
-
-	ub := sqlbuilder.NewUpdateBuilder()
-	sql, args := ub.Update(userTableName).
-		Set(
-			ub.Assign("updated_at", user.UpdatedAt),
-			ub.Assign("password_hash", user.PasswordHash),
-			ub.Assign("is_blocked", user.IsBlocked),
-		).
-		Where(ub.Equal("id", user.ID)).
-		BuildWithFlavor(app.SQLBuilderFlavor)
-
-	_, err := ur.db.Exec(sql, args...)
-
-	return err
+	return u != nil, nil
 }
 
-func (ur *userDBRepository) Remove(user *model.User) error {
-	if err := user.Validate(); err != nil {
-		return err
-	}
+func (ur *userRepository) HasByLogin(login string) (bool, error) {
+	u, _ := ur.GetByLogin(login)
 
-	db := sqlbuilder.NewDeleteBuilder()
-	query, args := db.
-		DeleteFrom(userTableName).
-		Where(db.Equal("id", user.ID)).
-		BuildWithFlavor(app.SQLBuilderFlavor)
-
-	_, err := ur.db.Exec(query, args...)
-
-	return err
+	return u != nil, nil
 }

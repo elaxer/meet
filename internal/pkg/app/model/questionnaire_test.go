@@ -4,6 +4,8 @@ import (
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/guregu/null"
 )
 
 func TestQuestionnaire_GetPreferredGenders(t *testing.T) {
@@ -84,6 +86,7 @@ func TestQuestionnaire_CheckCompatibilities(t *testing.T) {
 		Gender      Gender
 		Orientation Orientation
 		AgeRange    AgeRange
+		IsActive    bool
 	}
 	type args struct {
 		questionnaire *Questionnaire
@@ -100,91 +103,98 @@ func TestQuestionnaire_CheckCompatibilities(t *testing.T) {
 		{
 			"The questionnaires are compatible",
 			// The "-20" means 20 years old
-			fields{BirthDate(currentDate.AddDate(-20, 0, 0)), GenderMale, OrientationHetero, AgeRange{18, 30}},
+			fields{BirthDateFrom(currentDate.AddDate(-20, 0, 0)), GenderMale, OrientationHetero, NewAgeRange(18, 30), true},
 			args{
 				&Questionnaire{
-					BirthDate:   BirthDate(currentDate.AddDate(-23, 0, 0)),
+					BirthDate:   BirthDateFrom(currentDate.AddDate(-23, 0, 0)),
 					Gender:      GenderFemale,
 					Orientation: OrientationHetero,
-					AgeRange:    AgeRange{20, 40},
+					AgeRange:    NewAgeRange(20, 40),
+					IsActive:    true,
 				},
 			},
 			true,
 		},
 		{
 			"The questionnaires are not compatible because of age",
-			fields{BirthDate(currentDate.AddDate(-20, 0, 0)), GenderMale, OrientationHetero, AgeRange{18, 30}},
+			fields{BirthDateFrom(currentDate.AddDate(-20, 0, 0)), GenderMale, OrientationHetero, NewAgeRange(18, 30), true},
 			args{
 				&Questionnaire{
-					BirthDate:   BirthDate(currentDate.AddDate(-31, 0, 0)),
+					BirthDate:   BirthDateFrom(currentDate.AddDate(-31, 0, 0)),
 					Gender:      GenderFemale,
 					Orientation: OrientationHetero,
-					AgeRange:    AgeRange{20, 40},
+					AgeRange:    NewAgeRange(20, 40),
+					IsActive:    true,
 				},
 			},
 			false,
 		},
 		{
 			"The questionnaires are not compatible because of orientation",
-			fields{BirthDate(currentDate.AddDate(-20, 0, 0)), GenderMale, OrientationHetero, AgeRange{18, 30}},
+			fields{BirthDateFrom(currentDate.AddDate(-20, 0, 0)), GenderMale, OrientationHetero, NewAgeRange(18, 30), true},
 			args{
 				&Questionnaire{
-					BirthDate:   BirthDate(currentDate.AddDate(-23, 0, 0)),
+					BirthDate:   BirthDateFrom(currentDate.AddDate(-23, 0, 0)),
 					Gender:      GenderFemale,
 					Orientation: OrientationHomo,
-					AgeRange:    AgeRange{20, 40},
+					AgeRange:    NewAgeRange(20, 40),
+					IsActive:    true,
 				},
 			},
 			false,
 		},
 		{
 			"The questionnaires are not compatible because of orientation (2)",
-			fields{BirthDate(currentDate.AddDate(-20, 0, 0)), GenderMale, OrientationHomo, AgeRange{18, 30}},
+			fields{BirthDateFrom(currentDate.AddDate(-20, 0, 0)), GenderMale, OrientationHomo, NewAgeRange(18, 30), true},
 			args{
 				&Questionnaire{
-					BirthDate:   BirthDate(currentDate.AddDate(-23, 0, 0)),
+					BirthDate:   BirthDateFrom(currentDate.AddDate(-23, 0, 0)),
 					Gender:      GenderFemale,
 					Orientation: OrientationHomo,
-					AgeRange:    AgeRange{20, 40},
+					AgeRange:    NewAgeRange(20, 40),
+					IsActive:    true,
 				},
 			},
 			false,
 		},
 		{
 			"The questionnaires are not compatible because of orientation (3)",
-			fields{BirthDate(currentDate.AddDate(-20, 0, 0)), GenderFemale, OrientationHetero, AgeRange{18, 30}},
+			fields{BirthDateFrom(currentDate.AddDate(-20, 0, 0)), GenderFemale, OrientationHetero, NewAgeRange(18, 30), true},
 			args{
 				&Questionnaire{
-					BirthDate:   BirthDate(currentDate.AddDate(-20, 0, 0)),
+					BirthDate:   BirthDateFrom(currentDate.AddDate(-20, 0, 0)),
 					Gender:      GenderFemale,
 					Orientation: OrientationBi,
-					AgeRange:    AgeRange{18, 30},
+					AgeRange:    NewAgeRange(18, 30),
+					IsActive:    true,
 				},
 			},
 			false,
 		},
 		{
 			"The questionnaires are not compatible because of age and orientation",
-			fields{BirthDate(currentDate.AddDate(-20, 0, 0)), GenderMale, OrientationHetero, AgeRange{18, 30}},
+			fields{BirthDateFrom(currentDate.AddDate(-20, 0, 0)), GenderMale, OrientationHetero, NewAgeRange(18, 30), true},
 			args{
 				&Questionnaire{
-					BirthDate:   BirthDate(currentDate.AddDate(-30, 0, 0)),
+					BirthDate:   BirthDateFrom(currentDate.AddDate(-30, 0, 0)),
 					Gender:      GenderFemale,
 					Orientation: OrientationHomo,
-					AgeRange:    AgeRange{20, 40},
+					AgeRange:    NewAgeRange(20, 40),
+					IsActive:    true,
 				},
 			},
 			false,
 		},
 		{
 			"The questionnaires are not compatible because of age and orientation (reversed)",
-			fields{BirthDate(currentDate.AddDate(-30, 0, 0)), GenderFemale, OrientationHomo, AgeRange{20, 40}},
+			fields{BirthDateFrom(currentDate.AddDate(-30, 0, 0)), GenderFemale, OrientationHomo, NewAgeRange(20, 40), true},
 			args{
 				&Questionnaire{
-					BirthDate:   BirthDate(currentDate.AddDate(-20, 0, 0)),
+					BirthDate:   BirthDateFrom(currentDate.AddDate(-20, 0, 0)),
 					Gender:      GenderMale,
 					Orientation: OrientationHetero,
-					AgeRange:    AgeRange{18, 30},
+					AgeRange:    NewAgeRange(18, 30),
+					IsActive:    true,
 				},
 			},
 			false,
@@ -193,15 +203,78 @@ func TestQuestionnaire_CheckCompatibilities(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			q := &Questionnaire{
+				Name:        "test",
 				BirthDate:   tt.fields.BirthDate,
 				Gender:      tt.fields.Gender,
 				Orientation: tt.fields.Orientation,
 				AgeRange:    tt.fields.AgeRange,
+				IsActive:    tt.fields.IsActive,
 			}
+
+			tt.args.questionnaire.Name = "test"
 
 			if got := q.CheckCompatibilities(tt.args.questionnaire, currentDate); got != tt.want {
 				t.Errorf("Questionnaire.CheckCompatibility() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestQuestionnaire_IsCompleted(t *testing.T) {
+	q := NewQuestionnaire(1, "test_user")
+	if err := q.Validate(); err != nil {
+		t.Error(err)
+	}
+	if q.IsCompleted() {
+		t.Errorf("the questionnaire couldn't be completed at this moment")
+	}
+
+	q.BirthDate = NewBirthDate(2000, 1, 1)
+	if err := q.Validate(); err != nil {
+		t.Error(err)
+	}
+	if q.IsCompleted() {
+		t.Errorf("the questionnaire couldn't be completed at this moment")
+	}
+
+	q.Gender = GenderMale
+	if err := q.Validate(); err != nil {
+		t.Error(err)
+	}
+	if q.IsCompleted() {
+		t.Errorf("the questionnaire couldn't be completed at this moment")
+	}
+
+	q.Orientation = OrientationHetero
+	if err := q.Validate(); err != nil {
+		t.Error(err)
+	}
+	if q.IsCompleted() {
+		t.Errorf("the questionnaire couldn't be completed at this moment")
+	}
+
+	q.MeetingPurpose = MeetingPurposeFriendship
+	if err := q.Validate(); err != nil {
+		t.Error(err)
+	}
+	if q.IsCompleted() {
+		t.Errorf("the questionnaire couldn't be completed at this moment")
+	}
+
+	q.AgeRange = AgeRange{Min: null.IntFrom(18), Max: null.IntFrom(18)}
+	if err := q.Validate(); err != nil {
+		t.Error(err)
+	}
+	if q.IsCompleted() {
+		t.Errorf("the questionnaire couldn't be completed at this moment")
+	}
+
+	q.CityID = null.IntFrom(1)
+	if err := q.Validate(); err != nil {
+		t.Error(err)
+	}
+
+	if !q.IsCompleted() {
+		t.Errorf("the questionnaire had to be completed at this moment")
 	}
 }

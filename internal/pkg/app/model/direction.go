@@ -1,7 +1,7 @@
 package model
 
 var (
-	ErrDirectionIdentifiersEqual = NewValidationError("direction", "идентификаторы отправителя и получателя не должны быть одинаковыми")
+	errDirectionIdentifiersEqual = NewValidationError("direction", "идентификаторы отправителя и получателя не должны быть одинаковыми")
 )
 
 type Direction struct {
@@ -20,7 +20,7 @@ func (d *Direction) GetFieldPointers() []interface{} {
 func (d *Direction) Validate() error {
 	errs := &ValidationErrors{}
 	if d.FromID == d.ToID {
-		errs.Append(ErrDirectionIdentifiersEqual)
+		errs.Append(errDirectionIdentifiersEqual)
 	}
 
 	if errs.Empty() {

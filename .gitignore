@@ -1,5 +1,5 @@
-.env.local
-vendor
-.vscode
-database/*
-uploads/photos/*
+.env
+vendor/
+.vscode/
+database/
+.DS_Store

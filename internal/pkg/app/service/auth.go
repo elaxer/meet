@@ -2,7 +2,7 @@ package service
 
 import (
 	"errors"
-	"meet/internal/pkg/app"
+	"meet/internal/config"
 	"meet/internal/pkg/app/model"
 	"meet/internal/pkg/app/repository"
 	"time"
@@ -16,16 +16,21 @@ var (
 	ErrIncorrectCryptoMethod = errors.New("некорректный метод криптографии токена")
 )
 
-type AuthService struct {
-	jwtConfig      *app.JWTConfig
+type AuthService interface {
+	Authenticate(login string, password model.Password) (string, error)
+	Authorize(tokenString string) (*model.User, error)
+}
+
+type authService struct {
+	jwtConfig      *config.JWTConfig
 	userRepository repository.UserRepository
 }
 
-func newAuthService(jwtConfig *app.JWTConfig, userRepository repository.UserRepository) *AuthService {
-	return &AuthService{jwtConfig, userRepository}
+func NewAuthService(jwtConfig *config.JWTConfig, userRepository repository.UserRepository) AuthService {
+	return &authService{jwtConfig, userRepository}
 }
 
-func (as *AuthService) Authenticate(login string, password model.Password) (string, error) {
+func (as *authService) Authenticate(login string, password model.Password) (string, error) {
 	u, err := as.userRepository.GetByLogin(login)
 	if err != nil {
 		return "", err
@@ -49,7 +54,7 @@ func (as *AuthService) Authenticate(login string, password model.Password) (stri
 	return t, err
 }
 
-func (as *AuthService) Authorize(tokenString string) (*model.User, error) {
+func (as *authService) Authorize(tokenString string) (*model.User, error) {
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, ErrIncorrectCryptoMethod

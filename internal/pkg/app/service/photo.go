@@ -3,48 +3,56 @@ package service
 import (
 	"errors"
 	"io"
+	"meet/internal/config"
+	"meet/internal/pkg/app/helper"
 	"meet/internal/pkg/app/model"
 	"meet/internal/pkg/app/repository"
 	"os"
+	"path/filepath"
 )
 
-const dirUploadPhoto = "photos"
 const photosMax = 10
 
-var ErrPhotoUploadLimit = errors.New("превышено макисмальное количество загружаемых фотографий в анкету")
+var (
+	ErrPhotoUploadLimit = errors.New("превышено макисмальное количество загружаемых фотографий в анкету")
+)
 
-type PhotoService struct {
+type PhotoService interface {
+	Upload(userID int, file io.ReadSeeker) (*model.Photo, error)
+	Delete(userID, photoID int) (*model.Photo, error)
+}
+
+type photoService struct {
+	pathHelper              helper.PathHelper
 	photoRepository         repository.PhotoRepository
 	questionnaireRepository repository.QuestionnaireRepository
-	fileService             *FileService
+	fileUploaderService     FileUploaderService
 }
 
-func newPhotoService(
+func NewPhotoService(
+	pathHelper helper.PathHelper,
 	photoRepository repository.PhotoRepository,
 	questionnaireRepository repository.QuestionnaireRepository,
-	fileService *FileService,
-) *PhotoService {
-	return &PhotoService{
-		photoRepository:         photoRepository,
-		questionnaireRepository: questionnaireRepository,
-		fileService:             fileService,
-	}
+	fileUploaderService FileUploaderService,
+) PhotoService {
+	return &photoService{pathHelper, photoRepository, questionnaireRepository, fileUploaderService}
 }
 
-func (ps *PhotoService) Upload(userID int, file io.ReadSeeker) (*model.Photo, error) {
+func (ps *photoService) Upload(userID int, fileReaderSeeker io.ReadSeeker) (*model.Photo, error) {
 	q, err := ps.questionnaireRepository.GetByUserID(userID)
 	if err != nil {
 		return nil, err
 	}
-
 	if len(q.Photos) > photosMax {
 		return nil, ErrPhotoUploadLimit
 	}
 
-	_, fname, err := ps.fileService.Upload(file, []string{"image"}, dirUploadPhoto)
+	f, err := ps.fileUploaderService.Upload(fileReaderSeeker, config.UploadTypeImage, userID)
 	if err != nil {
 		return nil, err
 	}
+
+	_, fname := filepath.Split(f.Name())
 
 	p := new(model.Photo)
 	p.Path = fname
@@ -56,22 +64,7 @@ func (ps *PhotoService) Upload(userID int, file io.ReadSeeker) (*model.Photo, er
 	return p, nil
 }
 
-func (ps *PhotoService) GetPath(userID int, photoID int) (string, error) {
-	q, err := ps.questionnaireRepository.GetByUserID(userID)
-	if err != nil {
-		return "", err
-	}
-
-	for _, p := range q.Photos {
-		if p.ID == photoID {
-			return ps.fileService.FullPath(p.Path, dirUploadPhoto), nil
-		}
-	}
-
-	return "", repository.ErrNotFound
-}
-
-func (ps *PhotoService) Delete(userID int, photoID int) (*model.Photo, error) {
+func (ps *photoService) Delete(userID, photoID int) (*model.Photo, error) {
 	q, err := ps.questionnaireRepository.GetByUserID(userID)
 	if err != nil {
 		return nil, err
@@ -86,7 +79,7 @@ func (ps *PhotoService) Delete(userID int, photoID int) (*model.Photo, error) {
 			return p, err
 		}
 
-		if err := os.Remove(ps.fileService.FullPath(p.Path, dirUploadPhoto)); err != nil {
+		if err := os.Remove(ps.pathHelper.UploadPath(p.Path, config.UploadTypeImage, userID)); err != nil {
 			return p, err
 		}
 

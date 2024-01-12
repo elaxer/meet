@@ -3,14 +3,15 @@ package model
 import "strings"
 
 var (
-	ErrPhotoUnspecifiedQuestionnaire = NewValidationError("questionnaireID", "необходимо указать анкету")
-	ErrPhotoEmptyPath                = NewValidationError("path", "путь не может быть пустым")
+	errPhotoUnspecifiedQuestionnaire = NewValidationError("questionnaireID", "необходимо указать анкету")
+	errPhotoEmptyPath                = NewValidationError("path", "путь не может быть пустым")
 )
 
 type Photo struct {
 	BaseModel
 	QuestionnaireID int    `json:"-"`
 	Path            string `json:"-"`
+	URL             string `json:"url"`
 }
 
 func (p *Photo) GetFieldPointers() []interface{} {
@@ -27,10 +28,10 @@ func (p *Photo) BeforeAdd() {
 func (p *Photo) Validate() error {
 	errs := &ValidationErrors{}
 	if p.QuestionnaireID == 0 {
-		errs.Append(ErrPhotoUnspecifiedQuestionnaire)
+		errs.Append(errPhotoUnspecifiedQuestionnaire)
 	}
 	if strings.TrimSpace(p.Path) == "" {
-		errs.Append(ErrPhotoEmptyPath)
+		errs.Append(errPhotoEmptyPath)
 	}
 
 	if errs.Empty() {

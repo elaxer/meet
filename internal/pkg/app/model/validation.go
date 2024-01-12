@@ -1,6 +1,7 @@
 package model
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 )
@@ -15,6 +16,13 @@ type ValidationError struct {
 	placeholders []any  `json:"-"`
 }
 
+func (ve *ValidationError) MarshalJSON() ([]byte, error) {
+	return json.Marshal(struct {
+		Subject string `json:"subject"`
+		Message string `json:"message"`
+	}{ve.Subject, ve.String()})
+}
+
 func NewValidationError(subject, message string, placeholders ...any) *ValidationError {
 	return &ValidationError{
 		Subject:      subject,
@@ -24,7 +32,11 @@ func NewValidationError(subject, message string, placeholders ...any) *Validatio
 }
 
 func (ve *ValidationError) Error() string {
-	return ve.Subject + ": " + fmt.Sprintf(ve.Message, ve.placeholders...)
+	return ve.Subject + ": " + ve.String()
+}
+
+func (ve *ValidationError) String() string {
+	return fmt.Sprintf(ve.Message, ve.placeholders...)
 }
 
 type ValidationErrors struct {
@@ -46,4 +58,12 @@ func (ve *ValidationErrors) Append(err ...error) {
 
 func (ve *ValidationErrors) Empty() bool {
 	return len(ve.Errors) == 0
+}
+
+func (ve *ValidationErrors) First() error {
+	if ve.Empty() {
+		return nil
+	}
+
+	return ve.Errors[0]
 }

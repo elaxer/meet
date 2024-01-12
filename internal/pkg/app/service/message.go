@@ -6,28 +6,30 @@ import (
 	"meet/internal/pkg/app/repository"
 )
 
-var ErrUsersNotCoupled = errors.New("пользователи не находятся в паре")
+var (
+	ErrUsersNotCoupled = errors.New("пользователи не находятся в паре")
+)
 
-type MessageService struct {
-	assessmentRepository repository.AssessmentRepository
-	messageRepository    repository.MessageRepository
-	assessmentService    *AssessmentService
+type MessageService interface {
+	Send(message *model.Message) error
+	Read(userID, messageID int) (*model.Message, error)
 }
 
-func newMessageService(
-	assessmentRepository repository.AssessmentRepository,
-	messageRepository repository.MessageRepository,
-	assessmentService *AssessmentService,
-) *MessageService {
-	return &MessageService{assessmentRepository, messageRepository, assessmentService}
+type messageService struct {
+	messageRepository repository.MessageRepository
+	coupleRepository  repository.CoupleRepository
 }
 
-func (ms *MessageService) Text(message *model.Message) error {
+func NewMessageService(messageRepository repository.MessageRepository, coupleRepository repository.CoupleRepository) MessageService {
+	return &messageService{messageRepository, coupleRepository}
+}
+
+func (ms *messageService) Send(message *model.Message) error {
 	if err := message.Validate(); err != nil {
 		return err
 	}
 
-	isCouple, err := ms.assessmentService.IsCouple(message.UsersDirection)
+	isCouple, err := ms.coupleRepository.Has(message.UsersDirection)
 	if err != nil {
 		return err
 	}
@@ -40,7 +42,7 @@ func (ms *MessageService) Text(message *model.Message) error {
 	return err
 }
 
-func (ms *MessageService) Read(userID, messageID int) (*model.Message, error) {
+func (ms *messageService) Read(userID, messageID int) (*model.Message, error) {
 	m, err := ms.messageRepository.Get(messageID)
 	if err != nil {
 		return nil, err

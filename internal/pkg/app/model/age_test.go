@@ -17,13 +17,13 @@ func TestBirthDate_Age(t *testing.T) {
 	}{
 		{
 			"Birthday is happened",
-			BirthDate(time.Date(2000, time.April, 1, 0, 0, 0, 0, time.UTC)),
+			BirthDateFrom(time.Date(2000, time.April, 1, 0, 0, 0, 0, time.UTC)),
 			args{time.Date(2020, time.May, 1, 0, 0, 0, 0, time.UTC)},
 			20,
 		},
 		{
 			"Birthday is not happened",
-			BirthDate(time.Date(2000, time.April, 1, 0, 0, 0, 0, time.UTC)),
+			BirthDateFrom(time.Date(2000, time.April, 1, 0, 0, 0, 0, time.UTC)),
 			args{time.Date(2020, time.March, 1, 0, 0, 0, 0, time.UTC)},
 			19,
 		},
@@ -45,7 +45,7 @@ func TestBirthDate_String(t *testing.T) {
 	}{
 		{
 			"Birth date string",
-			BirthDate(time.Date(2023, time.February, 11, 0, 0, 0, 0, time.UTC)),
+			BirthDateFrom(time.Date(2023, time.February, 11, 0, 0, 0, 0, time.UTC)),
 			"2023-02-11",
 		},
 	}
@@ -106,10 +106,7 @@ func TestAgeRange_Validate(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ar := &AgeRange{
-				From: tt.fields.From,
-				To:   tt.fields.To,
-			}
+			ar := NewAgeRange(tt.fields.From, tt.fields.To)
 			if err := ar.Validate(); (err != nil) != tt.wantErr {
 				t.Errorf("AgeRange.Validate() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -164,10 +161,7 @@ func TestAgeRange_Match(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ar := &AgeRange{
-				From: tt.fields.From,
-				To:   tt.fields.To,
-			}
+			ar := NewAgeRange(tt.fields.From, tt.fields.To)
 			if got := ar.InRange(tt.args.age); got != tt.want {
 				t.Errorf("AgeRange.InRange() = %v, want %v", got, tt.want)
 			}

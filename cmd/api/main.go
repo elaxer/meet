@@ -1,86 +1,73 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
-	"meet/internal/api/controller"
-	"meet/internal/api/middleware"
-	"meet/internal/api/router"
-	"meet/internal/pkg/app"
-	"meet/internal/pkg/app/repository"
-	"meet/internal/pkg/app/service"
+	"log"
+	"meet/internal/config"
+	"meet/internal/pkg/app/helper"
 	"net/http"
+	"os"
+	"os/signal"
+	"path/filepath"
+	"runtime"
+	"syscall"
+	"time"
 
-	"github.com/gorilla/mux"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 )
 
-var cfg *app.Config
-
 var (
-	repositories *repository.RepositoryContainer
-	services     *service.ServiceContainer
-	controllers  *controller.ControllerContainer
-	middlewares  *middleware.MiddlewareContainer
+	_, b, _, _ = runtime.Caller(0)
+	rootDir, _ = filepath.Abs(filepath.Dir(b) + "/../..")
 )
 
+var db *sql.DB
+var cfg *config.Config
+
 func init() {
-	err := godotenv.Load(app.RootDir+"/.env.local", app.RootDir+"/.env")
+	err := godotenv.Load(rootDir + "/.env")
 	if err != nil {
 		panic(err)
 	}
 
-	cfg = app.NewConfig()
+	cfg = config.NewConfig(rootDir)
 
-	db := newDB()
-
-	repositories = repository.NewRepositoryContainer(db)
-	services = service.NewServiceContainer(cfg, repositories)
-	controllers = controller.NewControllerContainer(cfg, repositories, services)
-	middlewares = middleware.NewMiddlewareContainer(services)
+	db, err = helper.LoadDB(cfg.DBConfig)
+	if err != nil {
+		panic(err)
+	}
 }
 
 func main() {
-	r := mux.NewRouter()
-	router.Configure(r, controllers, middlewares)
+	http.Handle("/", httpHandler(db))
 
-	http.Handle(
-		"/",
-		middleware.LogMiddleware(
-			middleware.CORSMiddleware(
-				middleware.ContentLength(
-					middleware.FileSize(r),
-				),
-			),
-		),
-	)
-
-	addr := fmt.Sprintf("%s:%s", cfg.ServerConfig.Host, cfg.ServerConfig.Port)
-
-	http.ListenAndServe(addr, nil)
-}
-
-func newDB() *sql.DB {
-	db, err := sql.Open(
-		cfg.DBConfig.DriverName,
-		fmt.Sprintf(
-			"host=%s port=%d sslmode=%s user=%s password=%s dbname=%s",
-			cfg.DBConfig.Host,
-			cfg.DBConfig.Port,
-			cfg.DBConfig.SSLMode,
-			cfg.DBConfig.User,
-			cfg.DBConfig.Password,
-			cfg.DBConfig.DBName,
-		),
-	)
-	if err != nil {
-		panic(err)
+	server := &http.Server{
+		Addr:         fmt.Sprintf(":%d", cfg.ServerConfig.Port),
+		WriteTimeout: time.Second * 15,
+		ReadTimeout:  time.Second * 15,
+		IdleTimeout:  time.Second * 60,
 	}
 
-	if err := db.Ping(); err != nil {
-		panic(err)
-	}
+	go func() {
+		err := server.ListenAndServe()
+		log.Println(err)
+	}()
 
-	return db
+	log.Printf("Сервер запущен на адресе %s", server.Addr)
+
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	<-c
+
+	log.Println("Остановка сервера...")
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
+	defer cancel()
+
+	if err := server.Shutdown(ctx); err != nil {
+		log.Fatal(err)
+	}
 }

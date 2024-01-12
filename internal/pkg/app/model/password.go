@@ -7,8 +7,8 @@ import (
 )
 
 var (
-	ErrPasswordEmpty       = NewValidationError("password", "пароль не может быть пустым")
-	ErrPasswordWrongLength = NewValidationError(
+	errPasswordEmpty       = NewValidationError("password", "пароль не может быть пустым")
+	errPasswordWrongLength = NewValidationError(
 		"password",
 		"длина пароля должна быть не менее %d и не более %d символов",
 		passwordMinLength,
@@ -27,10 +27,10 @@ func (p Password) Validate() error {
 	errs := &ValidationErrors{}
 
 	if strings.TrimSpace(string(p)) == "" {
-		errs.Append(ErrPasswordEmpty)
+		errs.Append(errPasswordEmpty)
 	}
 	if len(p) < passwordMinLength || len(p) > passwordMaxLength {
-		errs.Append(ErrPasswordWrongLength)
+		errs.Append(errPasswordWrongLength)
 	}
 
 	if errs.Empty() {
@@ -40,7 +40,7 @@ func (p Password) Validate() error {
 	return errs
 }
 
-func (p Password) GetHash() (string, error) {
+func (p Password) Hash() (string, error) {
 	ph, err := bcrypt.GenerateFromPassword([]byte(p), bcrypt.MinCost)
 	if err != nil {
 		return "", err

@@ -27,6 +27,50 @@ securityDefinitions:
     name: Authorization
 
 definitions:
+  Country:
+    type: "object"
+    description: "Страна"
+    required: ["id", "name", "name_native", "emoji"]
+    properties:
+      id:
+        type: "integer"
+        description: "Иденитификатор страны"
+      name:
+        type: "string"
+        description: "Название страны"
+      name_native:
+        type: "string"
+        description: "Нативное название страны"
+      emoji:
+        type: "string"
+        description: "Эмодзи флага страны"
+  
+  City:
+    type: "object"
+    description: "Город"
+    required: ["id", "country_id", "name", "coordinates"]
+    properties: 
+      id:
+        type: "integer"
+        description: "Иденитификатор города"
+      country_id:
+        type: "integer"
+        description: "Иденитификатор страны города"
+      name:
+        type: "string"
+        description: "Название города"
+      coordinates:
+        type: "object"
+        description: "Координаты нахождения города на карте"
+        required: ["latitude", "longitude"]
+        properties:
+          latitude:
+            type: "number"
+            description: "Координата широты"
+          longitude:
+            type: "number"
+            description: "Координата долготы"
+
   ValidationErrorResponse:
     type: "object"
     description: "Ошибки валидации"
@@ -107,10 +151,9 @@ definitions:
         description: "Дата рождения пользователя"
         example: "2001-03-24"
       gender:
-        type: "string"
+        type: "boolean"
         description: "Пол пользователя"
-        enum: ["male", "female"]
-        example: "male"
+        example: false
       orientation:
         type: "string"
         description: "Сексуальная ориентация пользователя"
@@ -134,14 +177,10 @@ definitions:
             type: "integer"
             description: "Максимальный возраст"
             example: 25
-      country:
-        type: "string"
-        description: "Страна, где находится пользователь"
-        example: "Россия"
-      city:
-        type: "string"
-        description: "Город, где находится пользователь"
-        example: "Москва"
+      city_id:
+        type: "integer"
+        description: "Идентификатор города, где находится пользователь"
+        example: 65737
       about:
         type: "string"
         description: "Описание анкеты пользователя"
@@ -233,6 +272,47 @@ definitions:
         readOnly: true
 
 paths:
+  /dictionary/countries:
+    get:
+      summary: "Список стран"
+      description: "Список стран"
+      tags: ["Dictionary"]
+      responses:
+        200:
+          description: "Список стран"
+          schema:
+            type: "array"
+            items: 
+              $ref: "#/definitions/Country"
+  /dictionary/countries/{id}/cities:
+    get:
+      summary: "Список городов"
+      description: "Список городов"
+      tags: ["Dictionary"]
+      parameters:
+        - name: "id"
+          in: "path"
+          description: "Идентификатор страны"
+          type: "integer"
+          required: true
+        - name: "limit"
+          in: "query"
+          type: "integer"
+          required: false
+          default: 100
+        - name: "offset"
+          in: "query"
+          type: "integer"
+          required: false
+          default: 0
+      responses:
+        200:
+          description: "Список городов"
+          schema:
+            type: "array"
+            items: 
+              $ref: "#/definitions/City"
+
   /authenticate:
     post:
       summary: "Аутентификация пользователя в API"
@@ -551,28 +631,6 @@ paths:
             $ref: "#/definitions/QuestionnairePhoto"
         404:
           description: "Не удалось найти фотографию анкеты пользователя"
-  /questionnaires/me/photos/{id}/content:
-    get:
-      summary: "Получить файл фотографии анкеты"
-      description: "Получить файл фотографии анкеты пользователя по ее идентификатору"
-      tags: ["Questionnaire"]
-      consumes: ["application/json"]
-      produces: ["image/jpeg", "image/jpg", "image/png"]
-      security:
-        - ApiKeyAuth: []
-      parameters:
-        - name: "id"
-          in: "path"
-          description: "Идентификатор фотографии анкеты пользователя"
-          type: "integer"
-          required: true
-      responses:
-        200:
-          description: "Файл фотографии анкеты"
-          schema:
-            type: "file"
-        404:
-          description: "Не удалось найти фотографию анкеты пользователя"
   
   /users/{id}/messages:
     get:
@@ -609,6 +667,25 @@ paths:
         404:
           description: "Не удалось найти партнера"
   /messages:
+    get:
+      summary: "Получить информацию о сообщениях"
+      description: "Получить информацию о сообщениях"
+      tags: ["Message"]
+      consumes: ["application/json"]
+      produces: ["application/json"]
+      security:
+        - ApiKeyAuth: []
+      responses:
+        200:
+          description: "Информация о сообщениях"
+          schema:
+            type: "object"
+            description: "Информация о сообщениях"
+            required: ["count"]
+            properties: 
+              count:
+                type: "integer"
+                description: "Количество непрочитанных сообщений"
     post:
       summary: "Отправить сообщение партнеру"
       description: "Отправить сообщение партнеру"
@@ -646,6 +723,11 @@ paths:
       security:
         - ApiKeyAuth: []
       parameters:
+        - name: "id"
+          in: "path"
+          description: "Идентификатор сообщения"
+          type: "integer"
+          required: true
         - name: "body"
           in: "body"
           description: "Изменить сообщение партнера"
@@ -655,7 +737,7 @@ paths:
               is_readed:
                 type: "boolean"
                 description: "Прочитано ли сообщение"
-                enum: ["true"]
+                enum: [true]
       responses:
         200:
           description: "Сообщение прочитано"

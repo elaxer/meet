@@ -6,6 +6,13 @@ import (
 	"github.com/guregu/null"
 )
 
+type Model interface {
+	comparable
+	BeforeAdd()
+	BeforeUpdate()
+	Validate() error
+}
+
 // BaseModel это базовая модель, содержащая повторяющиеся поля всех моделей
 type BaseModel struct {
 	ID        int       `json:"id,omitempty"`
@@ -29,3 +36,6 @@ func (bm *BaseModel) GetFieldPointers() []interface{} {
 		&bm.UpdatedAt,
 	}
 }
+
+type SMEvent string
+type SMState string
