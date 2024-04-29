@@ -12,7 +12,7 @@ type DBConfig struct {
 	DBName     string
 }
 
-func newDBConfig() *DBConfig {
+func dbFromEnv() *DBConfig {
 	return &DBConfig{
 		DriverName: os.Getenv("DB_DRIVER_NAME"),
 		Host:       os.Getenv("DB_HOST"),

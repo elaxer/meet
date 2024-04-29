@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"meet/internal/pkg/api"
+	"meet/internal/pkg/app"
 	"meet/internal/pkg/app/model"
 	"meet/internal/pkg/app/service"
 	"net/http"
@@ -21,7 +22,7 @@ func NewAssessmentHandler(assessmentService service.AssessmentService) Assessmen
 }
 
 func (ah *assessmentHandler) Assess(w http.ResponseWriter, r *http.Request) {
-	u := r.Context().Value(api.CtxKeyUser).(*model.User)
+	u := r.Context().Value(app.CtxKeyUser).(*model.User)
 
 	a := new(model.Assessment)
 	a.UsersDirection.FromID = u.ID

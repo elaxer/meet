@@ -25,3 +25,16 @@ services:
       SWAGGER_JSON_URL: ${SERVER_HOST}/api/v1/swagger
     ports:
       - ${SWAGGER_PORT}:8080
+
+  redis:
+    image: redis:latest
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./redis/local/dаta:/root/redis
+      - ./redis/local/redis.conf:/usr/local/etc/redis/redis.conf
+    environment:
+        REDIS_PASSWORD: ${REDIS_PASSWORD}
+        REDIS_PORT: ${REDIS_PORT}
+        REDIS_DATABASES: ${REDIS_DATABASES}

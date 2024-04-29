@@ -6,12 +6,6 @@ import (
 	"net/http"
 )
 
-type ctxKey int
-
-const (
-	CtxKeyUser ctxKey = iota
-)
-
 var errorsMap = map[int][]error{
 	http.StatusBadRequest: {
 		errParamNotSpecified,

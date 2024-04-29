@@ -3,13 +3,14 @@ package helper
 import (
 	"fmt"
 	"meet/internal/config"
+	"meet/internal/pkg/app"
 	"meet/internal/pkg/app/model"
 	"net/url"
 	"strings"
 )
 
 type URLHelper interface {
-	UploadURL(filename string, uploadType config.UploadType, userID int) string
+	UploadURL(filename string, uploadType app.UploadType, userID int) string
 	SetQuestionnairePhotos(questionnaires ...*model.Questionnaire)
 }
 
@@ -22,7 +23,7 @@ func NewURLHelper(serverConfig *config.ServerConfig, uploadDirs *config.UploadDi
 	return &urlHelper{serverConfig, uploadDirs}
 }
 
-func (ph *urlHelper) UploadURL(filename string, uploadType config.UploadType, userID int) string {
+func (ph *urlHelper) UploadURL(filename string, uploadType app.UploadType, userID int) string {
 	schemeAndHost := strings.Split(ph.serverConfig.Host, "://")
 	scheme, host := schemeAndHost[0], schemeAndHost[1]
 
@@ -42,7 +43,7 @@ func (ph *urlHelper) UploadURL(filename string, uploadType config.UploadType, us
 func (ph *urlHelper) SetQuestionnairePhotos(questionnaires ...*model.Questionnaire) {
 	for _, q := range questionnaires {
 		for _, p := range q.Photos {
-			p.URL = ph.UploadURL(p.Path, config.UploadTypeImage, q.UserID)
+			p.URL = ph.UploadURL(p.Path, app.UploadTypeImage, q.UserID)
 		}
 	}
 }

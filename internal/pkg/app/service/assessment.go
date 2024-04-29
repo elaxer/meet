@@ -56,7 +56,7 @@ func (as *assessmentService) Assess(assessment *model.Assessment) error {
 		return ErrQuestionnaireState
 	}
 
-	qTo, err := as.questionnaireRepository.GetByUserID(assessment.UsersDirection.FromID)
+	qTo, err := as.questionnaireRepository.GetByUserID(assessment.UsersDirection.ToID)
 	if err != nil {
 		return err
 	}

@@ -3,6 +3,7 @@ package middleware
 import (
 	"context"
 	"meet/internal/pkg/api"
+	"meet/internal/pkg/app"
 	"meet/internal/pkg/app/service"
 	"net/http"
 	"strings"
@@ -51,7 +52,7 @@ func (am *authorizeMiddleware) Authorize(next http.Handler) http.Handler {
 			return
 		}
 
-		ctx := context.WithValue(r.Context(), api.CtxKeyUser, u)
+		ctx := context.WithValue(r.Context(), app.CtxKeyUser, u)
 
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})

@@ -18,7 +18,8 @@ type QuestionnaireRepository interface {
 	GetByUserID(userID int) (*model.Questionnaire, error)
 	HasByUserID(userID int) (bool, error)
 	Couples(userID, limit, offset int) ([]*model.Questionnaire, error)
-	PickUp(userID, limit, offset int) ([]*model.Questionnaire, error)
+	Suggested(userID, limit, offset int) ([]*model.Questionnaire, error)
+	Assessed(userID, limit, offset int) ([]*model.Questionnaire, error)
 	Add(ctx context.Context, questionnaire *model.Questionnaire) error
 	Update(questionnaire *model.Questionnaire) error
 }
@@ -114,7 +115,7 @@ func (qr *questionnaireDBRepository) Couples(userID, limit, offset int) ([]*mode
 	defer rows.Close()
 
 	for rows.Next() {
-		q := new(model.Questionnaire)
+		q := model.NewQuestionnaireEmpty()
 
 		err := rows.Scan(q.GetFieldPointers()...)
 		if err != nil {
@@ -133,13 +134,13 @@ func (qr *questionnaireDBRepository) Couples(userID, limit, offset int) ([]*mode
 	return questionnaires, nil
 }
 
-func (qr *questionnaireDBRepository) PickUp(userID, limit, offset int) ([]*model.Questionnaire, error) {
+func (qr *questionnaireDBRepository) Suggested(userID, limit, offset int) ([]*model.Questionnaire, error) {
 	sb := newSelectBuilder()
 	query, args := sb.
 		Select("q.*").
 		From(sb.As(questionnaireTableName, "q")).
 		JoinWithOption(sqlbuilder.LeftJoin, sb.As(coupleTableName, "c1"), "q.user_id = c1.from_user_id", sb.Equal("c1.to_user_id", userID)).
-		JoinWithOption(sqlbuilder.LeftJoin, sb.As(coupleTableName, "c2"), "q.user_id = c2.to_user_id", sb.Equal("c1.from_user_id", userID)).
+		JoinWithOption(sqlbuilder.LeftJoin, sb.As(coupleTableName, "c2"), "q.user_id = c2.to_user_id", sb.Equal("c2.from_user_id", userID)).
 		Join(sb.As(userTableName, "u"), "u.id = q.user_id").
 		Where(sb.NotEqual("q.user_id", userID)).
 		Where(sb.IsNull("c1.id")).
@@ -156,9 +157,44 @@ func (qr *questionnaireDBRepository) PickUp(userID, limit, offset int) ([]*model
 	defer rows.Close()
 
 	for rows.Next() {
-		q := new(model.Questionnaire)
+		q := model.NewQuestionnaireEmpty()
+		err := rows.Scan(q.GetFieldPointers()...)
+		if err != nil {
+			return questionnaires[0:0], err
+		}
 
-		err := rows.Scan(q.GetFieldPointers())
+		q.FSM.SetState(q.State())
+		q.Photos, err = qr.photoRepository.GetByQuestionnaireID(q.ID)
+		if err != nil {
+			return questionnaires[0:0], err
+		}
+
+		questionnaires = append(questionnaires, q)
+	}
+
+	return questionnaires, nil
+}
+
+func (qr *questionnaireDBRepository) Assessed(userID, limit, offset int) ([]*model.Questionnaire, error) {
+	sb := newSelectBuilder()
+	query, args := sb.
+		Select("q.*").
+		From(sb.As(assessmentTableName, "a")).
+		Join(sb.As(questionnaireTableName, "q"), "q.user_id = a.from_user_id").
+		Where(sb.Equal("a.to_user_id", userID)).
+		Build()
+
+	questionnaires := make([]*model.Questionnaire, 0, limit)
+
+	rows, err := qr.db.Query(query, args...)
+	if err != nil {
+		return questionnaires, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		q := model.NewQuestionnaireEmpty()
+		err := rows.Scan(q.GetFieldPointers()...)
 		if err != nil {
 			return questionnaires[0:0], err
 		}
@@ -237,7 +273,7 @@ func (qr *questionnaireDBRepository) Update(questionnaire *model.Questionnaire) 
 	}
 
 	ub := newUpdateBuilder()
-	query, args := ub.Update(questionnaireTableName).
+	query := ub.Update(questionnaireTableName).
 		Set(
 			ub.Assign("updated_at", questionnaire.UpdatedAt),
 			ub.Assign("name", questionnaire.Name),
@@ -250,12 +286,16 @@ func (qr *questionnaireDBRepository) Update(questionnaire *model.Questionnaire) 
 			ub.Assign("city_id", questionnaire.CityID),
 			ub.Assign("about", questionnaire.About),
 			ub.Assign("is_active", questionnaire.IsActive),
-			ub.Assign("state", questionnaire.FSM.Current()),
 		).
-		Where(ub.Equal("user_id", questionnaire.UserID)).
-		Build()
+		Where(ub.Equal("user_id", questionnaire.UserID))
 
-	_, err := qr.db.Exec(query, args...)
+	if questionnaire.FSM != nil {
+		query.SetMore(ub.Assign("state", questionnaire.FSM.Current()))
+	}
+
+	queryStr, args := query.Build()
+
+	_, err := qr.db.Exec(queryStr, args...)
 
 	return err
 }

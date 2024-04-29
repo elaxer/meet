@@ -3,7 +3,7 @@ package service
 import (
 	"errors"
 	"io"
-	"meet/internal/config"
+	"meet/internal/pkg/app"
 	"meet/internal/pkg/app/helper"
 	"meet/internal/pkg/app/model"
 	"meet/internal/pkg/app/repository"
@@ -47,7 +47,7 @@ func (ps *photoService) Upload(userID int, fileReaderSeeker io.ReadSeeker) (*mod
 		return nil, ErrPhotoUploadLimit
 	}
 
-	f, err := ps.fileUploaderService.Upload(fileReaderSeeker, config.UploadTypeImage, userID)
+	f, err := ps.fileUploaderService.Upload(fileReaderSeeker, app.UploadTypeImage, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +79,7 @@ func (ps *photoService) Delete(userID, photoID int) (*model.Photo, error) {
 			return p, err
 		}
 
-		if err := os.Remove(ps.pathHelper.UploadPath(p.Path, config.UploadTypeImage, userID)); err != nil {
+		if err := os.Remove(ps.pathHelper.UploadPath(p.Path, app.UploadTypeImage, userID)); err != nil {
 			return p, err
 		}
 

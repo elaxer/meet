@@ -1,8 +1,7 @@
 package main
 
 import (
-	"database/sql"
-	"log"
+	"log/slog"
 	"meet/internal/config"
 	"meet/internal/pkg/app/fixture"
 	"meet/internal/pkg/app/helper"
@@ -14,38 +13,40 @@ import (
 	_ "github.com/lib/pq"
 )
 
-var db *sql.DB
-
-var dbConfig *config.DBConfig
-
-var (
-	userRepository          = repository.NewUserDBRepository(db)
-	photoRepository         = repository.NewPhotoDBRepository(db)
-	questionnaireRepository = repository.NewQuestionnaireDBRepository(db, photoRepository)
-	coupleRepository        = repository.NewCoupleDBRepository(db)
-)
-
-func init() {
+func main() {
 	_, b, _, _ := runtime.Caller(0)
 	rootDir, _ := filepath.Abs(filepath.Dir(b) + "/../..")
 
 	err := godotenv.Load(rootDir + "/.env")
 	if err != nil {
-		log.Fatal(err)
+		slog.Warn(err.Error())
+		return
 	}
 
-	dbConfig = config.NewConfig(rootDir).DBConfig
+	cfg := config.FromEnv(rootDir)
 
-	db, err = helper.LoadDB(dbConfig)
+	logF, err := helper.OpenLogFile(rootDir)
 	if err != nil {
-		log.Fatal(err)
+		slog.Warn(err.Error())
+		return
 	}
-}
+	defer logF.Close()
+	helper.ConfigureSlogger(cfg.Debug, logF)
 
-func main() {
+	db, err := helper.LoadDB(cfg.DB)
+	if err != nil {
+		slog.Warn(err.Error())
+		return
+	}
+
+	userRepository := repository.NewUserDBRepository(db)
+	questionnaireRepository := repository.NewQuestionnaireDBRepository(db, repository.NewPhotoDBRepository(db))
+	coupleRepository := repository.NewCoupleDBRepository(db)
+
 	if err := fixture.LoadFixtures(db, userRepository, questionnaireRepository, coupleRepository); err != nil {
-		log.Fatal(err)
+		slog.Warn(err.Error())
+		return
 	}
 
-	log.Println("Фикстуры успешно загружены в базу данных!")
+	slog.Info("Фикстуры успешно загружены в базу данных!")
 }

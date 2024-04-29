@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"meet/internal/pkg/api"
+	"meet/internal/pkg/app"
 	"meet/internal/pkg/app/model"
 	"meet/internal/pkg/app/repository"
 	"meet/internal/pkg/app/service"
@@ -17,7 +18,7 @@ const (
 )
 
 type MessageHandler interface {
-	GetList(w http.ResponseWriter, r *http.Request)
+	List(w http.ResponseWriter, r *http.Request)
 	UnreadCount(w http.ResponseWriter, r *http.Request)
 	Send(w http.ResponseWriter, r *http.Request)
 	Read(w http.ResponseWriter, r *http.Request)
@@ -32,8 +33,8 @@ func NewMessageHandler(messageRepository repository.MessageRepository, messageSe
 	return &messageHandler{messageRepository, messageService}
 }
 
-func (mh *messageHandler) GetList(w http.ResponseWriter, r *http.Request) {
-	u := r.Context().Value(api.CtxKeyUser).(*model.User)
+func (mh *messageHandler) List(w http.ResponseWriter, r *http.Request) {
+	u := r.Context().Value(app.CtxKeyUser).(*model.User)
 
 	userID, err := api.GetParamInt(mux.Vars(r), "id")
 	if err != nil {
@@ -57,7 +58,7 @@ func (mh *messageHandler) GetList(w http.ResponseWriter, r *http.Request) {
 }
 
 func (mh *messageHandler) UnreadCount(w http.ResponseWriter, r *http.Request) {
-	u := r.Context().Value(api.CtxKeyUser).(*model.User)
+	u := r.Context().Value(app.CtxKeyUser).(*model.User)
 
 	count, err := mh.messageRepository.UnreadCount(u.ID)
 	if err != nil {
@@ -72,7 +73,7 @@ func (mh *messageHandler) UnreadCount(w http.ResponseWriter, r *http.Request) {
 }
 
 func (mh *messageHandler) Send(w http.ResponseWriter, r *http.Request) {
-	u := r.Context().Value(api.CtxKeyUser).(*model.User)
+	u := r.Context().Value(app.CtxKeyUser).(*model.User)
 
 	m := new(model.Message)
 	m.UsersDirection.FromID = u.ID
@@ -93,7 +94,7 @@ func (mh *messageHandler) Send(w http.ResponseWriter, r *http.Request) {
 }
 
 func (mh *messageHandler) Read(w http.ResponseWriter, r *http.Request) {
-	u := r.Context().Value(api.CtxKeyUser).(*model.User)
+	u := r.Context().Value(app.CtxKeyUser).(*model.User)
 
 	mID, err := api.GetParamInt(mux.Vars(r), "id")
 	if err != nil {

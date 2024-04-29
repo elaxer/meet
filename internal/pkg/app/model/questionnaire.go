@@ -64,6 +64,18 @@ const (
 	StateQuestionnaireFillingAbout       = "filling_about"
 )
 
+var questionnaireEventDes = []fsm.EventDesc{
+	{Name: EventQuestionnaireFillName, Src: []string{StateQuestionnaireCreated}, Dst: StateQuestionnaireFillingName},
+	{Name: EventQuestionnaireFillBirthDate, Src: []string{StateQuestionnaireFillingName, StateQuestionnaireCompleted}, Dst: StateQuestionnaireFillingBirthDate},
+	{Name: EventQuestionnaireFillGender, Src: []string{StateQuestionnaireFillingBirthDate, StateQuestionnaireCompleted}, Dst: StateQuestionnaireFillingGender},
+	{Name: EventQuestionnaireFillOrientation, Src: []string{StateQuestionnaireFillingGender, StateQuestionnaireCompleted}, Dst: StateQuestionnaireFillingOrientation},
+	{Name: EventQuestionnaireFillAgeRangeMin, Src: []string{StateQuestionnaireFillingOrientation, StateQuestionnaireCompleted}, Dst: StateQuestionnaireFillingAgeRangeMin},
+	{Name: EventQuestionnaireFillAgeRangeMax, Src: []string{StateQuestionnaireFillingAgeRangeMin, StateQuestionnaireCompleted}, Dst: StateQuestionnaireFillingAgeRangeMax},
+	{Name: EventQuestionnaireFillCity, Src: []string{StateQuestionnaireFillingAgeRangeMax, StateQuestionnaireCompleted}, Dst: StateQuestionnaireFillingCity},
+	{Name: EventQuestionnaireFillAbout, Src: []string{StateQuestionnaireFillingCity, StateQuestionnaireCompleted}, Dst: StateQuestionnaireFillingAbout},
+	{Name: EventQuestionnaireComplete, Src: []string{StateQuestionnaireFillingAbout}, Dst: StateQuestionnaireCompleted},
+}
+
 var (
 	errQuestionnaireNameTooShort = NewValidationError("name", "длина имени должна быть не менее %d символов", questionnaireNameLengthMin)
 	errQuestionnaireNameTooLong  = NewValidationError("name", "длина имени должна быть не более %d символов", questionnaireNameLengthMax)
@@ -109,17 +121,7 @@ func (q *Questionnaire) GetFieldPointers() []interface{} {
 
 func NewQuestionnaireEmpty() *Questionnaire {
 	q := new(Questionnaire)
-	q.FSM = fsm.NewFSM(StateQuestionnaireCreated, []fsm.EventDesc{
-		{Name: EventQuestionnaireFillName, Src: []string{StateQuestionnaireCreated}, Dst: StateQuestionnaireFillingName},
-		{Name: EventQuestionnaireFillBirthDate, Src: []string{StateQuestionnaireFillingName, StateQuestionnaireCompleted}, Dst: StateQuestionnaireFillingBirthDate},
-		{Name: EventQuestionnaireFillGender, Src: []string{StateQuestionnaireFillingBirthDate, StateQuestionnaireCompleted}, Dst: StateQuestionnaireFillingGender},
-		{Name: EventQuestionnaireFillOrientation, Src: []string{StateQuestionnaireFillingGender, StateQuestionnaireCompleted}, Dst: StateQuestionnaireFillingOrientation},
-		{Name: EventQuestionnaireFillAgeRangeMin, Src: []string{StateQuestionnaireFillingOrientation, StateQuestionnaireCompleted}, Dst: StateQuestionnaireFillingAgeRangeMin},
-		{Name: EventQuestionnaireFillAgeRangeMax, Src: []string{StateQuestionnaireFillingAgeRangeMin, StateQuestionnaireCompleted}, Dst: StateQuestionnaireFillingAgeRangeMax},
-		{Name: EventQuestionnaireFillCity, Src: []string{StateQuestionnaireFillingAgeRangeMax, StateQuestionnaireCompleted}, Dst: StateQuestionnaireFillingCity},
-		{Name: EventQuestionnaireFillAbout, Src: []string{StateQuestionnaireFillingCity, StateQuestionnaireCompleted}, Dst: StateQuestionnaireFillingAbout},
-		{Name: EventQuestionnaireComplete, Src: []string{StateQuestionnaireFillingAbout}, Dst: StateQuestionnaireCompleted},
-	}, fsm.Callbacks{})
+	q.FSM = fsm.NewFSM(StateQuestionnaireCreated, questionnaireEventDes, fsm.Callbacks{})
 
 	return q
 }

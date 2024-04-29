@@ -31,7 +31,7 @@ type Assessment struct {
 func (a *Assessment) GetFieldPointers() []interface{} {
 	fields := append(a.BaseModel.GetFieldPointers(), a.UsersDirection.GetFieldPointers()...)
 
-	return append(fields, &a.Message, &a.Decision)
+	return append(fields, &a.Message, &a.Decision, &a.IsMutual)
 }
 
 func (a *Assessment) BeforeAdd() {

@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"meet/internal/config"
 	"meet/internal/pkg/app/model"
@@ -22,16 +23,23 @@ type AuthService interface {
 }
 
 type authService struct {
-	jwtConfig      *config.JWTConfig
-	userRepository repository.UserRepository
+	jwtConfig           *config.JWTConfig
+	userDBRepository    repository.UserRepository
+	userRedisRepository repository.UserRepository
+	userService         UserService
 }
 
-func NewAuthService(jwtConfig *config.JWTConfig, userRepository repository.UserRepository) AuthService {
-	return &authService{jwtConfig, userRepository}
+func NewAuthService(
+	jwtConfig *config.JWTConfig,
+	userDBRepository repository.UserRepository,
+	userRedisRepository repository.UserRepository,
+	userService UserService,
+) AuthService {
+	return &authService{jwtConfig, userDBRepository, userRedisRepository, userService}
 }
 
 func (as *authService) Authenticate(login string, password model.Password) (string, error) {
-	u, err := as.userRepository.GetByLogin(login)
+	u, err := as.userDBRepository.GetByLogin(login)
 	if err != nil {
 		return "", err
 	}
@@ -50,8 +58,15 @@ func (as *authService) Authenticate(login string, password model.Password) (stri
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, payload)
 
 	t, err := token.SignedString([]byte(as.jwtConfig.SecretKey))
+	if err != nil {
+		return "", err
+	}
 
-	return t, err
+	if err := as.userRedisRepository.Add(context.Background(), u); err != nil {
+		return "", err
+	}
+
+	return t, nil
 }
 
 func (as *authService) Authorize(tokenString string) (*model.User, error) {
@@ -80,7 +95,5 @@ func (as *authService) Authorize(tokenString string) (*model.User, error) {
 	}
 	loginString := login.(string)
 
-	u, err := as.userRepository.GetByLogin(loginString)
-
-	return u, err
+	return as.userService.GetByLogin(loginString)
 }

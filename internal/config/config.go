@@ -2,57 +2,41 @@ package config
 
 import (
 	"os"
-	"path/filepath"
 	"strconv"
+	"strings"
 )
-
-const (
-	uploadsDir      = "/uploads"
-	photosDir       = "/photos"
-	swaggerFilePath = "/api/swagger.yml"
-)
-
-type PathConfig struct {
-	RootDir         string
-	UploadDirs      *UploadDirs
-	SwaggerFilePath string
-}
-
-type UploadDirs struct {
-	UploadDir string
-	PhotoDir  string
-}
-
-func (pc *PathConfig) FullPath(paths ...string) string {
-	path := filepath.Join(paths...)
-
-	return filepath.Join(pc.RootDir, path)
-}
 
 type Config struct {
-	DBConfig     *DBConfig
-	ServerConfig *ServerConfig
-	JWTConfig    *JWTConfig
-	PathConfig   *PathConfig
+	Debug  bool
+	DB     *DBConfig
+	Server *ServerConfig
+	JWT    *JWTConfig
+	Path   *PathConfig
+	Redis  *RedisConfig
+	TgBot  *TgBotConfig
 }
 
-func NewConfig(rootDir string) *Config {
+func FromEnv(rootDir string) *Config {
 	return &Config{
-		newDBConfig(),
-		&ServerConfig{
-			Host: os.Getenv("SERVER_HOST"),
-			Port: mustGetenvInt("SERVER_PORT"),
-		},
-		&JWTConfig{
-			SecretKey: os.Getenv("JWT_SECRET_KEY"),
-			Expire:    mustGetenvInt("JWT_EXPIRE"),
-		},
-		&PathConfig{
-			rootDir,
-			&UploadDirs{uploadsDir, photosDir},
-			swaggerFilePath,
-		},
+		mustGetenvBool("DEBUG"),
+		dbFromEnv(),
+		serverFromEnv(),
+		jwtFromEnv(),
+		pathFromEnv(rootDir),
+		redisFromEnv(),
+		tgBotFromEnv(),
 	}
+}
+
+func mustGetenvBool(key string) bool {
+	strVal := os.Getenv(key)
+
+	intVal, err := strconv.Atoi(strVal)
+	if err == nil {
+		return intVal > 0
+	}
+
+	return strings.ToLower(strVal) == "true"
 }
 
 func mustGetenvInt(key string) int {

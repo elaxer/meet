@@ -20,7 +20,5 @@ DROP SEQUENCE IF EXISTS questionnaires_id_seq;
 
 DROP TABLE IF EXISTS "regions";
 
-DROP TABLE IF EXISTS "schema_migrations";
-
 DROP TABLE IF EXISTS "users";
 DROP SEQUENCE IF EXISTS users_id_seq;

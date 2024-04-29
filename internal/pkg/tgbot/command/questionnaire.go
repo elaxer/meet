@@ -2,6 +2,7 @@ package command
 
 import (
 	"context"
+	"meet/internal/pkg/app"
 	"meet/internal/pkg/app/model"
 	"meet/internal/pkg/app/repository"
 	"meet/internal/pkg/app/service"
@@ -47,7 +48,7 @@ func (qc *questionnaireCommand) FillName(ctx context.Context, bot *tgbotapi.BotA
 		return
 	}
 
-	q, _ := ctx.Value(tgbot.CtxKeyQuestionnaire).(*model.Questionnaire)
+	q, _ := ctx.Value(app.CtxKeyQuestionnaire).(*model.Questionnaire)
 
 	if err := qc.questionnaireService.UpdateName(q, update.Message.Text); err != nil {
 		tgbot.ResponseError(bot, update.Message.From.ID, err)
@@ -61,7 +62,7 @@ func (qc *questionnaireCommand) FillName(ctx context.Context, bot *tgbotapi.BotA
 }
 
 func (qc *questionnaireCommand) FillBirthDate(ctx context.Context, bot *tgbotapi.BotAPI, update tgbotapi.Update) {
-	q, _ := ctx.Value(tgbot.CtxKeyQuestionnaire).(*model.Questionnaire)
+	q, _ := ctx.Value(app.CtxKeyQuestionnaire).(*model.Questionnaire)
 	if !q.FSM.Is(model.StateQuestionnaireFillingBirthDate) {
 		return
 	}
@@ -102,7 +103,7 @@ func (qc *questionnaireCommand) FillBirthDate(ctx context.Context, bot *tgbotapi
 }
 
 func (qc *questionnaireCommand) FillGender(ctx context.Context, bot *tgbotapi.BotAPI, update tgbotapi.Update) {
-	q, _ := ctx.Value(tgbot.CtxKeyQuestionnaire).(*model.Questionnaire)
+	q, _ := ctx.Value(app.CtxKeyQuestionnaire).(*model.Questionnaire)
 	if !q.FSM.Is(model.StateQuestionnaireFillingGender) {
 		return
 	}

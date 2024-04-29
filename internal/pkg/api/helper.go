@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"meet/internal/pkg/app/model"
 	"net/http"
 	"net/url"
@@ -36,21 +36,27 @@ func ResponseObject(w http.ResponseWriter, v any, statusCode int) {
 }
 
 func ResponseError(w http.ResponseWriter, err error, statusCode int) {
-	log.Println(err)
-
 	switch err.(type) {
 	case *model.ValidationError:
+		slog.Error("Ошибка валидации", "err", err)
+
 		errs := &model.ValidationErrors{}
 		errs.Append(err)
 
 		ResponseObject(w, errs, http.StatusUnprocessableEntity)
 	case *model.ValidationErrors:
+		slog.Error("Ошибка валидации", "err", err)
+
 		ResponseObject(w, err, http.StatusUnprocessableEntity)
+	default:
+		if statusCode < http.StatusInternalServerError {
+			slog.Error(err.Error())
+		} else {
+			slog.Warn(err.Error())
+		}
 
-		return
+		ResponseEmpty(w, statusCode)
 	}
-
-	ResponseEmpty(w, statusCode)
 }
 
 func ResponseRaw(w http.ResponseWriter, bytes []byte, statusCode int) {

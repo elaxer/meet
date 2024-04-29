@@ -497,7 +497,7 @@ paths:
           description: "Ошибка валидации"
           schema:
             $ref: "#/definitions/ValidationErrorResponse"
-  /users/me/questionnaires:
+  /users/me/suggested:
     get:
       summary: "Анкеты для пользователя"
       description: "Подобрать анкеты для пользователя"
@@ -547,6 +547,33 @@ paths:
       responses:
         200:
           description: "Список пар пользователя"
+          schema:
+            type: "array"
+            items: 
+              $ref: "#/definitions/Questionnaire"
+  /users/me/assessed:
+    get:
+      summary: "Анкеты, оценившие пользователя"
+      description: "Список анкет, пользователи которых оценили текущего пользователя"
+      tags: ["Questionnaire"]
+      consumes: ["application/json"]
+      produces: ["application/json"]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: "limit"
+          in: "query"
+          type: "integer"
+          required: false
+          default: 10
+        - name: "offset"
+          in: "query"
+          type: "integer"
+          required: false
+          default: 0
+      responses:
+        200:
+          description: "Список анкет, оценивших пользователя"
           schema:
             type: "array"
             items: 

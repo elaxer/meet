@@ -13,7 +13,7 @@ func Test_userService_Register(t *testing.T) {
 	const login = "elaxer"
 
 	ur := repository.NewUserRepository()
-	us := NewUserService(ur)
+	us := NewUserService(ur, repository.NewUserRepository())
 
 	u, err := us.Register(login, "123456")
 	if err != nil {
@@ -41,7 +41,7 @@ func Test_userService_ChangePassword(t *testing.T) {
 		t.Errorf("userRepository.Add() = %s", err)
 	}
 
-	us := NewUserService(ur)
+	us := NewUserService(ur, repository.NewUserRepository())
 	if err := us.ChangePassword(u, "hello world"); err != nil {
 		t.Errorf("userService.ChangePassword() = %s", err)
 	}

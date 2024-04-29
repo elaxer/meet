@@ -9,11 +9,12 @@ import (
 )
 
 var (
-	ErrQuestionnaireState = errors.New("невозможно выполнить действие с текущим состоянием анкеты")
+	ErrQuestionnaireNotReady = errors.New("анкета незаполнена до конца")
+	ErrQuestionnaireState    = errors.New("невозможно выполнить действие с текущим состоянием анкеты")
 )
 
 type QuestionnaireService interface {
-	PickUp(userID, limit, offset int) ([]*model.Questionnaire, error)
+	Suggested(userID, limit, offset int) ([]*model.Questionnaire, error)
 	Add(ctx context.Context, questionnaire *model.Questionnaire) error
 	Update(questionnaire *model.Questionnaire) error
 	UpdateName(questionnaire *model.Questionnaire, name string) error
@@ -27,7 +28,7 @@ func NewQuestionnaireService(questionnaireRepository repository.QuestionnaireRep
 	return &questionnaireService{questionnaireRepository}
 }
 
-func (qs *questionnaireService) PickUp(userID, limit, offset int) ([]*model.Questionnaire, error) {
+func (qs *questionnaireService) Suggested(userID, limit, offset int) ([]*model.Questionnaire, error) {
 	questionnaires := make([]*model.Questionnaire, 0, limit)
 
 	questionnaire, err := qs.questionnaireRepository.GetByUserID(userID)
@@ -39,7 +40,7 @@ func (qs *questionnaireService) PickUp(userID, limit, offset int) ([]*model.Ques
 		return questionnaires, nil
 	}
 
-	questionnaires, err = qs.questionnaireRepository.PickUp(userID, limit, offset)
+	questionnaires, err = qs.questionnaireRepository.Suggested(userID, limit, offset)
 	if err != nil {
 		return questionnaires, err
 	}

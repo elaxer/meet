@@ -1,8 +1,8 @@
 package handler
 
 import (
-	"meet/internal/config"
 	"meet/internal/pkg/api"
+	"meet/internal/pkg/app"
 	"meet/internal/pkg/app/helper"
 	"meet/internal/pkg/app/model"
 	"meet/internal/pkg/app/repository"
@@ -28,7 +28,7 @@ func NewPhotoHandler(urlHelper helper.URLHelper, photoRepository repository.Phot
 }
 
 func (ph *photoHandler) Upload(w http.ResponseWriter, r *http.Request) {
-	u := r.Context().Value(api.CtxKeyUser).(*model.User)
+	u := r.Context().Value(app.CtxKeyUser).(*model.User)
 
 	file, _, err := r.FormFile("photo")
 	if err != nil {
@@ -45,13 +45,13 @@ func (ph *photoHandler) Upload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	photo.URL = ph.urlHelper.UploadURL(photo.Path, config.UploadTypeImage, u.ID)
+	photo.URL = ph.urlHelper.UploadURL(photo.Path, app.UploadTypeImage, u.ID)
 
 	api.ResponseObject(w, photo, http.StatusCreated)
 }
 
 func (ph *photoHandler) Delete(w http.ResponseWriter, r *http.Request) {
-	u := r.Context().Value(api.CtxKeyUser).(*model.User)
+	u := r.Context().Value(app.CtxKeyUser).(*model.User)
 
 	pID, err := api.GetParamInt(mux.Vars(r), "id")
 	if err != nil {
@@ -67,7 +67,7 @@ func (ph *photoHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	photo.URL = ph.urlHelper.UploadURL(photo.Path, config.UploadTypeImage, u.ID)
+	photo.URL = ph.urlHelper.UploadURL(photo.Path, app.UploadTypeImage, u.ID)
 
 	api.ResponseObject(w, photo, http.StatusOK)
 }

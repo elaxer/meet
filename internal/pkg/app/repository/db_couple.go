@@ -32,9 +32,9 @@ func (cr *coupleDBRepository) Has(usersDirection model.Direction) (bool, error) 
 		Select("1").
 		From(coupleTableName).
 		Where(
-			sb.Equal("from_user_id", usersDirection.FromID), sb.Equal("to_user_id", usersDirection.ToID),
 			sb.Or(
-				sb.Equal("from_user_id", usersDirection.ToID), sb.Equal("to_user_id", usersDirection.FromID),
+				sb.And(sb.Equal("from_user_id", usersDirection.FromID), sb.Equal("to_user_id", usersDirection.ToID)),
+				sb.And(sb.Equal("from_user_id", usersDirection.ToID), sb.Equal("to_user_id", usersDirection.FromID)),
 			),
 		).
 		Limit(1).

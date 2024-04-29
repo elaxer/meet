@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io"
 	"meet/internal/config"
+	"meet/internal/pkg/app"
 	"meet/internal/pkg/app/helper"
 	"os"
 	"path/filepath"
@@ -17,7 +18,7 @@ var (
 )
 
 type FileUploaderService interface {
-	Upload(file io.ReadSeeker, uploadType config.UploadType, userID int) (*os.File, error)
+	Upload(file io.ReadSeeker, uploadType app.UploadType, userID int) (*os.File, error)
 }
 
 type fileUploaderService struct {
@@ -29,7 +30,7 @@ func NewFileUploaderService(pathHelper helper.PathHelper, pathsConfig *config.Pa
 	return &fileUploaderService{pathHelper, pathsConfig}
 }
 
-func (fus *fileUploaderService) Upload(file io.ReadSeeker, uploadType config.UploadType, userID int) (*os.File, error) {
+func (fus *fileUploaderService) Upload(file io.ReadSeeker, uploadType app.UploadType, userID int) (*os.File, error) {
 	t, err := filetype.MatchReader(file)
 	if err != nil {
 		return nil, err

@@ -95,22 +95,23 @@ func (c *configurator) configureRoutesDictionary(r *mux.Router) {
 }
 
 func (c *configurator) configureRoutesSecure(r *mux.Router) {
-	r.HandleFunc("/users/me", c.userHandler.Get).Methods(http.MethodGet)
+	r.HandleFunc("/users/me", c.userHandler.Me).Methods(http.MethodGet)
 	r.HandleFunc("/users/me", c.userHandler.Delete).Methods(http.MethodDelete)
 	r.HandleFunc("/passwords/me", c.userHandler.ChangePassword).Methods(http.MethodPut)
 
-	r.HandleFunc("/questionnaires/me", c.questionnaireHandler.Get).Methods(http.MethodGet)
+	r.HandleFunc("/questionnaires/me", c.questionnaireHandler.Me).Methods(http.MethodGet)
 	r.HandleFunc("/questionnaires/me", c.questionnaireHandler.Create).Methods(http.MethodPost)
 	r.HandleFunc("/questionnaires/me", c.questionnaireHandler.Update).Methods(http.MethodPut)
-	r.HandleFunc("/users/me/questionnaires", c.questionnaireHandler.GetList).Methods(http.MethodGet)
-	r.HandleFunc("/users/me/couples", c.questionnaireHandler.GetCouples).Methods(http.MethodGet)
+	r.HandleFunc("/users/me/suggested", c.questionnaireHandler.Suggested).Methods(http.MethodGet)
+	r.HandleFunc("/users/me/couples", c.questionnaireHandler.Couples).Methods(http.MethodGet)
+	r.HandleFunc("/users/me/assessed", c.questionnaireHandler.Assessed).Methods(http.MethodGet)
 
 	r.HandleFunc("/questionnaires/me/photos/{id:[0-9]+}", c.photoHandler.Delete).Methods(http.MethodDelete)
 	r.HandleFunc("/questionnaires/me/photos", c.photoHandler.Upload).Methods(http.MethodPost)
 
 	r.HandleFunc("/assessments", c.assessmentHandler.Assess).Methods(http.MethodPost)
 
-	r.HandleFunc("/users/{id:[0-9]+}/messages", c.messageHandler.GetList).Methods(http.MethodGet)
+	r.HandleFunc("/users/{id:[0-9]+}/messages", c.messageHandler.List).Methods(http.MethodGet)
 	r.HandleFunc("/messages", c.messageHandler.UnreadCount).Methods(http.MethodGet)
 	r.HandleFunc("/messages", c.messageHandler.Send).Methods(http.MethodPost)
 	r.HandleFunc("/messages/{id:[0-9]+}", c.messageHandler.Read).Methods(http.MethodPut)

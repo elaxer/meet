@@ -94,12 +94,6 @@ CREATE TABLE "public"."regions" (
     CONSTRAINT "regions_id" PRIMARY KEY ("id")
 ) WITH (oids = false);
 
-CREATE TABLE "public"."schema_migrations" (
-    "version" bigint NOT NULL,
-    "dirty" boolean NOT NULL,
-    CONSTRAINT "schema_migrations_pkey" PRIMARY KEY ("version")
-) WITH (oids = false);
-
 CREATE SEQUENCE users_id_seq INCREMENT 1 MINVALUE 1 MAXVALUE 2147483647 START 79 CACHE 1;
 
 CREATE TABLE "public"."users" (

@@ -14,6 +14,8 @@ var (
 
 var queBaseModel = baseModelSeq()
 
+var fsm = model.NewQuestionnaireEmpty().FSM
+
 var (
 	ElaxerQue = &model.Questionnaire{
 		BaseModel:      queBaseModel(),
@@ -28,6 +30,7 @@ var (
 		About:          "Elaxer, 23 года, познакомлюсь с девушкой старше 20 и младше 30 лет",
 		Photos:         []*model.Photo{},
 		IsActive:       true,
+		FSM:            fsm,
 	}
 	MariyaQue = &model.Questionnaire{
 		BaseModel:      queBaseModel(),
@@ -42,6 +45,7 @@ var (
 		About:          "Мария, 33 года, познакомлюсь с паренем или девушкой старше 30 и младше 40 лет",
 		Photos:         []*model.Photo{},
 		IsActive:       true,
+		FSM:            fsm,
 	}
 	ElenaQue = &model.Questionnaire{
 		BaseModel:      queBaseModel(),
@@ -56,6 +60,7 @@ var (
 		About:          "Елена, 20 лет, познакомлюсь с девушкой старше 18 и младше 25 лет",
 		Photos:         []*model.Photo{},
 		IsActive:       true,
+		FSM:            fsm,
 	}
 	KristinaQue = &model.Questionnaire{
 		BaseModel:      queBaseModel(),
@@ -70,6 +75,7 @@ var (
 		About:          "Кристина, 26 лет, познакомлюсь с парнем старше 18 и младше 25 лет",
 		Photos:         []*model.Photo{},
 		IsActive:       true,
+		FSM:            fsm,
 	}
 	DmitriyQue = &model.Questionnaire{
 		BaseModel:      queBaseModel(),
@@ -84,6 +90,7 @@ var (
 		About:          "Дмитрий, 23 года, познакомлюсь с девушкой старше 18 и младше 23 лет",
 		Photos:         []*model.Photo{},
 		IsActive:       true,
+		FSM:            fsm,
 	}
 	VasiliyQue = &model.Questionnaire{
 		BaseModel:      queBaseModel(),
@@ -98,6 +105,7 @@ var (
 		About:          "Василий, 30 лет, познакомлюсь с парнем или девушкой старше 20 и младше 60 лет",
 		Photos:         []*model.Photo{},
 		IsActive:       true,
+		FSM:            fsm,
 	}
 )
 

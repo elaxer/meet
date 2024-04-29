@@ -3,7 +3,7 @@ package handler
 import (
 	"bytes"
 	"context"
-	"meet/internal/pkg/api"
+	"meet/internal/pkg/app"
 	"meet/internal/pkg/app/model"
 	"meet/internal/pkg/app/repository"
 	"meet/internal/pkg/app/service"
@@ -29,12 +29,12 @@ var user = model.User{
 // +integration
 func Test_userHandler_Get(t *testing.T) {
 	u := user
-	ctx := context.WithValue(context.Background(), api.CtxKeyUser, &u)
+	ctx := context.WithValue(context.Background(), app.CtxKeyUser, &u)
 
 	r := httptest.NewRequest(http.MethodGet, "/api/v1/users/me", nil).WithContext(ctx)
 	w := httptest.NewRecorder()
 
-	NewUserHandler(nil, nil).Get(w, r)
+	NewUserHandler(nil, nil).Me(w, r)
 
 	expected := `{"id":1,"created_at":"2023-12-28T13:25:54Z","login":"elaxer","tg_id":null}`
 	got := w.Body.String()
@@ -52,7 +52,7 @@ func Test_userHandler_Register(t *testing.T) {
 
 	ur := repository.NewUserRepository()
 
-	NewUserHandler(nil, service.NewUserService(ur)).Register(w, r)
+	NewUserHandler(nil, service.NewUserService(ur, repository.NewUserRepository())).Register(w, r)
 
 	expected := http.StatusCreated
 	got := w.Result().StatusCode
@@ -64,7 +64,7 @@ func Test_userHandler_Register(t *testing.T) {
 // +integration
 func Test_userHandler_ChangePassword(t *testing.T) {
 	u := user
-	ctx := context.WithValue(context.Background(), api.CtxKeyUser, &u)
+	ctx := context.WithValue(context.Background(), app.CtxKeyUser, &u)
 
 	requestBody := bytes.NewBuffer([]byte(`{"login": "elaxer", "password": "654321"}`))
 
@@ -74,7 +74,7 @@ func Test_userHandler_ChangePassword(t *testing.T) {
 	ur := repository.NewUserRepository()
 	ur.Add(context.Background(), &u)
 
-	NewUserHandler(nil, service.NewUserService(ur)).ChangePassword(w, r)
+	NewUserHandler(nil, service.NewUserService(ur, repository.NewUserRepository())).ChangePassword(w, r)
 
 	expected := http.StatusNoContent
 	got := w.Result().StatusCode
@@ -86,7 +86,7 @@ func Test_userHandler_ChangePassword(t *testing.T) {
 // +integration
 func Test_userHandler_Delete(t *testing.T) {
 	u := user
-	ctx := context.WithValue(context.Background(), api.CtxKeyUser, &u)
+	ctx := context.WithValue(context.Background(), app.CtxKeyUser, &u)
 
 	requestBody := bytes.NewBuffer([]byte(`{"login": "elaxer", "password": "654321"}`))
 
@@ -96,7 +96,7 @@ func Test_userHandler_Delete(t *testing.T) {
 	ur := repository.NewUserRepository()
 	ur.Add(context.Background(), &u)
 
-	NewUserHandler(nil, service.NewUserService(ur)).ChangePassword(w, r)
+	NewUserHandler(nil, service.NewUserService(ur, repository.NewUserRepository())).ChangePassword(w, r)
 
 	expected := http.StatusNoContent
 	got := w.Result().StatusCode

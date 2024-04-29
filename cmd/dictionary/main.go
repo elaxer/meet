@@ -4,7 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"log"
+	"io"
+	"log/slog"
 	"meet/internal/config"
 	"meet/internal/pkg/app/helper"
 	"meet/internal/pkg/app/model"
@@ -21,38 +22,6 @@ import (
 	"github.com/schollz/progressbar/v3"
 )
 
-var (
-	_, b, _, _ = runtime.Caller(0)
-	rootDir, _ = filepath.Abs(filepath.Dir(b) + "/../..")
-)
-
-var db *sql.DB
-var cfg *config.Config
-
-var (
-	regionRepository  repository.RegionRepository
-	countryRepository repository.CountryRepository
-	cityRepository    repository.CityRepository
-)
-
-func init() {
-	err := godotenv.Load(rootDir + "/.env")
-	if err != nil {
-		panic(err)
-	}
-
-	cfg = config.NewConfig(rootDir)
-
-	db, err = helper.LoadDB(cfg.DBConfig)
-	if err != nil {
-		panic(err)
-	}
-
-	regionRepository = repository.NewRegionDBRepository(db)
-	countryRepository = repository.NewCountryDBRepository(db)
-	cityRepository = repository.NewCityDBRepository(db)
-}
-
 type countryDTO struct {
 	*model.Country
 	Subregion   string        `json:"subregion"`
@@ -60,9 +29,9 @@ type countryDTO struct {
 	Cities      []*model.City `json:"cities"`
 }
 
-type Regions []*model.Region
+type regionsDTO []*model.Region
 
-func (r *Regions) AppendUnique(id int, name string) {
+func (r *regionsDTO) AppendUnique(id int, name string) {
 	for _, region := range *r {
 		if id == region.ID {
 			return
@@ -72,53 +41,80 @@ func (r *Regions) AppendUnique(id int, name string) {
 	*r = append(*r, &model.Region{ID: id, Name: name})
 }
 
+var (
+	regionRepository  repository.RegionRepository
+	countryRepository repository.CountryRepository
+	cityRepository    repository.CityRepository
+)
+
 func main() {
+	_, b, _, _ := runtime.Caller(0)
+	rootDir, _ := filepath.Abs(filepath.Dir(b) + "/../..")
+
+	err := godotenv.Load(rootDir + "/.env")
+	if err != nil {
+		slog.Warn(err.Error())
+		return
+	}
+
+	cfg := config.FromEnv(rootDir)
+
+	logF, err := helper.OpenLogFile(rootDir)
+	if err != nil {
+		slog.Warn(err.Error())
+		return
+	}
+	defer logF.Close()
+	helper.ConfigureSlogger(cfg.Debug, logF)
+
+	db, err := helper.LoadDB(cfg.DB)
+	if err != nil {
+		slog.Warn(err.Error())
+		return
+	}
+
+	regionRepository = repository.NewRegionDBRepository(db)
+	countryRepository = repository.NewCountryDBRepository(db)
+	cityRepository = repository.NewCityDBRepository(db)
+
 	f, err := os.Open(rootDir + "/cities.json")
 	if err != nil {
-		log.Fatal(err)
+		slog.Warn("Не удалось открыть файл", "err", err)
+		return
 	}
 	defer f.Close()
 
-	var data []*countryDTO
+	fillDB(f, db)
+}
 
-	var regions Regions
-	var countries []*model.Country
-	var cities []*model.City
-
-	decoder := json.NewDecoder(f)
-	if err := decoder.Decode(&data); err != nil {
-		log.Fatal(err)
-	}
-
-	for _, country := range data {
-		if !country.SubregionID.IsZero() {
-			regions.AppendUnique(int(country.SubregionID.Int64), country.Subregion)
-		}
-
-		country.Country.RegionID = country.SubregionID
-		countries = append(countries, country.Country)
-
-		for _, city := range country.Cities {
-			city.CountryID = country.ID
-			cities = append(cities, city)
-		}
+func fillDB(r io.Reader, db *sql.DB) {
+	regions, countries, cities, err := parseJSON(r)
+	if err != nil {
+		slog.Warn(err.Error())
+		return
 	}
 
 	ctx, tx, err := transaction.BeginTx(context.Background(), db)
+	if err != nil {
+		slog.Warn(err.Error())
+		return
+	}
 
-	log.Println("Добавление регионов в базу данных...")
+	slog.Info("Добавление регионов в базу данных...")
 	for _, region := range regions {
 		if err := regionRepository.Add(ctx, region); err != nil {
 			tx.Rollback()
-			log.Fatal(err)
+			slog.Warn(err.Error())
+			return
 		}
 	}
 
-	log.Println("Добавление стран в базу данных...")
+	slog.Info("Добавление стран в базу данных...")
 	for _, country := range countries {
 		if err := countryRepository.Add(ctx, country); err != nil {
 			tx.Rollback()
-			log.Fatal(err)
+			slog.Warn(err.Error())
+			return
 		}
 	}
 
@@ -126,10 +122,6 @@ func main() {
 	n := runtime.GOMAXPROCS(0)
 	partSize := citiesLen / n
 	remainder := citiesLen % n
-
-	if err != nil {
-		log.Fatal(err)
-	}
 
 	bar := progressbar.Default(int64(citiesLen), "Добавление городов в базу данных...")
 	wg := &sync.WaitGroup{}
@@ -156,10 +148,40 @@ func main() {
 	wg.Wait()
 
 	if err := tx.Commit(); err != nil {
-		log.Fatal(err)
+		slog.Warn(err.Error())
+		return
 	}
 
-	log.Println("База данных успешно заполнена данными!")
+	slog.Info("База данных успешно заполнена!")
+}
+
+func parseJSON(r io.Reader) (regionsDTO, []*model.Country, []*model.City, error) {
+	data := make([]*countryDTO, 0)
+
+	regions := make(regionsDTO, 0)
+	countries := make([]*model.Country, 0)
+	cities := make([]*model.City, 0)
+
+	decoder := json.NewDecoder(r)
+	if err := decoder.Decode(&data); err != nil {
+		return nil, nil, nil, err
+	}
+
+	for _, country := range data {
+		if !country.SubregionID.IsZero() {
+			regions.AppendUnique(int(country.SubregionID.Int64), country.Subregion)
+		}
+
+		country.Country.RegionID = country.SubregionID
+		countries = append(countries, country.Country)
+
+		for _, city := range country.Cities {
+			city.CountryID = country.ID
+			cities = append(cities, city)
+		}
+	}
+
+	return regions, countries, cities, nil
 }
 
 func insertCities(ctx context.Context, tx *sql.Tx, cities []*model.City, ch chan<- bool) {
@@ -168,7 +190,8 @@ func insertCities(ctx context.Context, tx *sql.Tx, cities []*model.City, ch chan
 	for _, city := range cities {
 		if err := cityRepository.Add(ctx, city); err != nil {
 			tx.Rollback()
-			log.Fatal(err)
+			slog.Warn(err.Error())
+			return
 		}
 
 		ch <- true
