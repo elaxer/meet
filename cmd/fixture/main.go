@@ -3,9 +3,10 @@ package main
 import (
 	"log/slog"
 	"meet/internal/config"
+	"meet/internal/pkg/app/database"
 	"meet/internal/pkg/app/fixture"
-	"meet/internal/pkg/app/helper"
-	"meet/internal/pkg/app/repository"
+	"meet/internal/pkg/app/repository/dbrepository"
+	"meet/internal/pkg/app/slogger"
 	"path/filepath"
 	"runtime"
 
@@ -19,33 +20,26 @@ func main() {
 
 	err := godotenv.Load(rootDir + "/.env")
 	if err != nil {
-		slog.Warn(err.Error())
-		return
+		panic(err)
 	}
 
 	cfg := config.FromEnv(rootDir)
 
-	logF, err := helper.OpenLogFile(rootDir)
-	if err != nil {
-		slog.Warn(err.Error())
-		return
-	}
+	logF := slogger.MustOpenLog(rootDir)
 	defer logF.Close()
-	helper.ConfigureSlogger(cfg.Debug, logF)
 
-	db, err := helper.LoadDB(cfg.DB)
-	if err != nil {
-		slog.Warn(err.Error())
-		return
-	}
+	slogger.Configure(cfg.Debug, logF)
 
-	userRepository := repository.NewUserDBRepository(db)
-	questionnaireRepository := repository.NewQuestionnaireDBRepository(db, repository.NewPhotoDBRepository(db))
-	coupleRepository := repository.NewCoupleDBRepository(db)
+	db := database.MustConnect(cfg.DB)
+
+	var (
+		userRepository          = dbrepository.NewUserRepository(db)
+		questionnaireRepository = dbrepository.NewQuestionnaireRepository(db)
+		coupleRepository        = dbrepository.NewCoupleRepository(db)
+	)
 
 	if err := fixture.LoadFixtures(db, userRepository, questionnaireRepository, coupleRepository); err != nil {
-		slog.Warn(err.Error())
-		return
+		panic(err)
 	}
 
 	slog.Info("Фикстуры успешно загружены в базу данных!")

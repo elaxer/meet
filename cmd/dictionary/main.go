@@ -7,10 +7,11 @@ import (
 	"io"
 	"log/slog"
 	"meet/internal/config"
-	"meet/internal/pkg/app/helper"
+	"meet/internal/pkg/app/database"
 	"meet/internal/pkg/app/model"
 	"meet/internal/pkg/app/repository"
-	"meet/internal/pkg/app/repository/transaction"
+	"meet/internal/pkg/app/repository/dbrepository"
+	"meet/internal/pkg/app/slogger"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -53,34 +54,25 @@ func main() {
 
 	err := godotenv.Load(rootDir + "/.env")
 	if err != nil {
-		slog.Warn(err.Error())
-		return
+		panic(err)
 	}
 
 	cfg := config.FromEnv(rootDir)
 
-	logF, err := helper.OpenLogFile(rootDir)
-	if err != nil {
-		slog.Warn(err.Error())
-		return
-	}
+	logF := slogger.MustOpenLog(rootDir)
 	defer logF.Close()
-	helper.ConfigureSlogger(cfg.Debug, logF)
 
-	db, err := helper.LoadDB(cfg.DB)
-	if err != nil {
-		slog.Warn(err.Error())
-		return
-	}
+	slogger.Configure(cfg.Debug, logF)
 
-	regionRepository = repository.NewRegionDBRepository(db)
-	countryRepository = repository.NewCountryDBRepository(db)
-	cityRepository = repository.NewCityDBRepository(db)
+	db := database.MustConnect(cfg.DB)
+
+	regionRepository = dbrepository.NewRegionRepository(db)
+	countryRepository = dbrepository.NewCountryRepository(db)
+	cityRepository = dbrepository.NewCityRepository(db)
 
 	f, err := os.Open(rootDir + "/cities.json")
 	if err != nil {
-		slog.Warn("Не удалось открыть файл", "err", err)
-		return
+		panic(err)
 	}
 	defer f.Close()
 
@@ -90,22 +82,20 @@ func main() {
 func fillDB(r io.Reader, db *sql.DB) {
 	regions, countries, cities, err := parseJSON(r)
 	if err != nil {
-		slog.Warn(err.Error())
-		return
+		panic(err)
 	}
 
-	ctx, tx, err := transaction.BeginTx(context.Background(), db)
+	ctx, tx, err := database.BeginTx(context.Background(), db)
 	if err != nil {
-		slog.Warn(err.Error())
-		return
+		panic(err)
 	}
 
 	slog.Info("Добавление регионов в базу данных...")
 	for _, region := range regions {
 		if err := regionRepository.Add(ctx, region); err != nil {
 			tx.Rollback()
-			slog.Warn(err.Error())
-			return
+
+			panic(err)
 		}
 	}
 
@@ -113,8 +103,8 @@ func fillDB(r io.Reader, db *sql.DB) {
 	for _, country := range countries {
 		if err := countryRepository.Add(ctx, country); err != nil {
 			tx.Rollback()
-			slog.Warn(err.Error())
-			return
+
+			panic(err)
 		}
 	}
 
@@ -125,7 +115,7 @@ func fillDB(r io.Reader, db *sql.DB) {
 
 	bar := progressbar.Default(int64(citiesLen), "Добавление городов в базу данных...")
 	wg := &sync.WaitGroup{}
-	for i := 0; i < n; i++ {
+	for i := range n {
 		wg.Add(1)
 
 		go func(i int) {
@@ -148,8 +138,7 @@ func fillDB(r io.Reader, db *sql.DB) {
 	wg.Wait()
 
 	if err := tx.Commit(); err != nil {
-		slog.Warn(err.Error())
-		return
+		panic(err)
 	}
 
 	slog.Info("База данных успешно заполнена!")
@@ -190,8 +179,8 @@ func insertCities(ctx context.Context, tx *sql.Tx, cities []*model.City, ch chan
 	for _, city := range cities {
 		if err := cityRepository.Add(ctx, city); err != nil {
 			tx.Rollback()
-			slog.Warn(err.Error())
-			return
+
+			panic(err)
 		}
 
 		ch <- true

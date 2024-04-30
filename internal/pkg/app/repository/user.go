@@ -1,8 +1,19 @@
 package repository
 
 import (
+	"context"
 	"meet/internal/pkg/app/model"
 )
+
+type UserRepository interface {
+	GetByLogin(login string) (*model.User, error)
+	HasByLogin(login string) (bool, error)
+	GetByTgID(id int64) (*model.User, error)
+	HasByTgID(id int64) (bool, error)
+	Add(ctx context.Context, user *model.User) error
+	Update(user *model.User) error
+	Remove(user *model.User) error
+}
 
 type userRepository struct {
 	collectionRepository[*model.User]

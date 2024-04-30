@@ -3,8 +3,8 @@ package command
 import (
 	"context"
 	"database/sql"
+	"meet/internal/pkg/app/database"
 	"meet/internal/pkg/app/model"
-	"meet/internal/pkg/app/repository/transaction"
 	"meet/internal/pkg/app/service"
 	"meet/internal/pkg/tgbot"
 
@@ -22,7 +22,7 @@ func NewStartCommand(db *sql.DB, userService service.UserService, questionnaireS
 }
 
 func (sc *startCommand) Handle(ctx context.Context, bot *tgbotapi.BotAPI, update tgbotapi.Update) {
-	ctx, tx, err := transaction.BeginTx(ctx, sc.db)
+	ctx, tx, err := database.BeginTx(ctx, sc.db)
 	if err != nil {
 		tgbot.ResponseError(bot, update.Message.From.ID, err)
 

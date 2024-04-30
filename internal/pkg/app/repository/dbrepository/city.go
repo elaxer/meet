@@ -1,28 +1,23 @@
-package repository
+package dbrepository
 
 import (
 	"context"
-	"database/sql"
+	"meet/internal/pkg/app/database"
 	"meet/internal/pkg/app/model"
-	"meet/internal/pkg/app/repository/transaction"
+	"meet/internal/pkg/app/repository"
 )
 
 const cityTableName = "cities"
 
-type CityRepository interface {
-	GetByCountryID(countryID, limit, offset int) ([]*model.City, error)
-	Add(ctx context.Context, city *model.City) error
+type cityRepository struct {
+	conn database.Connection
 }
 
-type cityDBRepository struct {
-	db *sql.DB
+func NewCityRepository(conn database.Connection) repository.CityRepository {
+	return &cityRepository{conn}
 }
 
-func NewCityDBRepository(db *sql.DB) CityRepository {
-	return &cityDBRepository{db}
-}
-
-func (cr *cityDBRepository) GetByCountryID(countryID, limit, offset int) ([]*model.City, error) {
+func (cr *cityRepository) GetByCountryID(countryID, limit, offset int) ([]*model.City, error) {
 	sb := newSelectBuilder()
 	query, args := sb.
 		Select("*").
@@ -34,7 +29,7 @@ func (cr *cityDBRepository) GetByCountryID(countryID, limit, offset int) ([]*mod
 
 	var cities []*model.City
 
-	rows, err := cr.db.Query(query, args...)
+	rows, err := cr.conn.Query(query, args...)
 	if err != nil {
 		return cities, err
 	}
@@ -52,7 +47,7 @@ func (cr *cityDBRepository) GetByCountryID(countryID, limit, offset int) ([]*mod
 	return cities, nil
 }
 
-func (cr *cityDBRepository) Add(ctx context.Context, city *model.City) error {
+func (cr *cityRepository) Add(ctx context.Context, city *model.City) error {
 	city.BeforeAdd()
 
 	if err := city.Validate(); err != nil {
@@ -65,7 +60,7 @@ func (cr *cityDBRepository) Add(ctx context.Context, city *model.City) error {
 		Values(city.ID, city.CountryID, city.Name, city.Latitude, city.Longitude).
 		Build()
 
-	conn := transaction.TxOrDB(ctx, cr.db)
+	conn := database.TxOrDB(ctx, cr.conn)
 	_, err := conn.Exec(query, args...)
 
 	return err

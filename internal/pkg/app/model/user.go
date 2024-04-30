@@ -19,7 +19,7 @@ var (
 	errUserLoginTooLong           = NewValidationError("login", "длина логина пользователя должна быть не более %d символов", loginLengthMax)
 	errUserLoginInvalidCharacters = NewValidationError("login", "логин пользователя должен содержать в себе только буквы и цифры")
 
-	errUserTgIDInvalid = NewValidationError("tg_id", "неверное значение идентификатора пользователя Телеграм")
+	errUserTgIDInvalid = NewValidationError("tg_id", "неверное значение идентификатора пользователя Telegram")
 )
 
 type User struct {

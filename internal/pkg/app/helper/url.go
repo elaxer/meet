@@ -4,14 +4,12 @@ import (
 	"fmt"
 	"meet/internal/config"
 	"meet/internal/pkg/app"
-	"meet/internal/pkg/app/model"
 	"net/url"
 	"strings"
 )
 
 type URLHelper interface {
 	UploadURL(filename string, uploadType app.UploadType, userID int) string
-	SetQuestionnairePhotos(questionnaires ...*model.Questionnaire)
 }
 
 type urlHelper struct {
@@ -38,12 +36,4 @@ func (ph *urlHelper) UploadURL(filename string, uploadType app.UploadType, userI
 	}
 
 	return u.String()
-}
-
-func (ph *urlHelper) SetQuestionnairePhotos(questionnaires ...*model.Questionnaire) {
-	for _, q := range questionnaires {
-		for _, p := range q.Photos {
-			p.URL = ph.UploadURL(p.Path, app.UploadTypeImage, q.UserID)
-		}
-	}
 }

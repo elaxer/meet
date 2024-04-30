@@ -1,33 +1,28 @@
-package repository
+package dbrepository
 
 import (
 	"context"
-	"database/sql"
+	"meet/internal/pkg/app/database"
 	"meet/internal/pkg/app/model"
-	"meet/internal/pkg/app/repository/transaction"
+	"meet/internal/pkg/app/repository"
 )
 
 const countryTableName = "countries"
 
-type CountryRepository interface {
-	GetAll() ([]*model.Country, error)
-	Add(ctx context.Context, country *model.Country) error
+type countryRepository struct {
+	conn database.Connection
 }
 
-type countryDBRepository struct {
-	db *sql.DB
+func NewCountryRepository(conn database.Connection) repository.CountryRepository {
+	return &countryRepository{conn}
 }
 
-func NewCountryDBRepository(db *sql.DB) CountryRepository {
-	return &countryDBRepository{db}
-}
-
-func (cr *countryDBRepository) GetAll() ([]*model.Country, error) {
+func (cr *countryRepository) GetAll() ([]*model.Country, error) {
 	query, args := newSelectBuilder().Select("*").From(countryTableName).Build()
 
 	var countries []*model.Country
 
-	rows, err := cr.db.Query(query, args...)
+	rows, err := cr.conn.Query(query, args...)
 	if err != nil {
 		return countries, err
 	}
@@ -45,7 +40,7 @@ func (cr *countryDBRepository) GetAll() ([]*model.Country, error) {
 	return countries, nil
 }
 
-func (cr *countryDBRepository) Add(ctx context.Context, country *model.Country) error {
+func (cr *countryRepository) Add(ctx context.Context, country *model.Country) error {
 	country.BeforeAdd()
 
 	if err := country.Validate(); err != nil {
@@ -58,7 +53,7 @@ func (cr *countryDBRepository) Add(ctx context.Context, country *model.Country) 
 		Values(country.ID, country.RegionID, country.Name, country.NameNative, country.Emoji).
 		Build()
 
-	conn := transaction.TxOrDB(ctx, cr.db)
+	conn := database.TxOrDB(ctx, cr.conn)
 	_, err := conn.Exec(query, args...)
 
 	return err

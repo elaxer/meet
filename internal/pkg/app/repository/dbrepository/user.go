@@ -1,56 +1,47 @@
-package repository
+package dbrepository
 
 import (
 	"context"
 	"database/sql"
 	"errors"
+	"meet/internal/pkg/app/database"
 	"meet/internal/pkg/app/model"
-	"meet/internal/pkg/app/repository/transaction"
+	"meet/internal/pkg/app/repository"
 )
 
 const userTableName = "users"
 
-type UserRepository interface {
-	GetByLogin(login string) (*model.User, error)
-	HasByLogin(login string) (bool, error)
-	GetByTgID(id int64) (*model.User, error)
-	HasByTgID(id int64) (bool, error)
-	Add(ctx context.Context, user *model.User) error
-	Update(user *model.User) error
-	Remove(user *model.User) error
+type userRepository struct {
+	conn database.Connection
 }
 
-type userDBRepository struct {
-	db *sql.DB
+func NewUserRepository(conn database.Connection) repository.UserRepository {
+	return &userRepository{conn}
 }
 
-func NewUserDBRepository(db *sql.DB) UserRepository {
-	return &userDBRepository{db}
-}
-
-func (ur *userDBRepository) GetByLogin(login string) (*model.User, error) {
+func (ur *userRepository) GetByLogin(login string) (*model.User, error) {
 	sb := newSelectBuilder()
 
 	query, args := sb.Select("*").From(userTableName).Where(sb.Equal("login", login)).Limit(1).Build()
 
 	u := new(model.User)
 
-	row := ur.db.QueryRow(query, args...)
+	row := ur.conn.QueryRow(query, args...)
 	err := row.Scan(u.GetFieldPointers()...)
 
 	if err != nil && errors.Is(err, sql.ErrNoRows) {
-		return nil, ErrNotFound
+		return nil, repository.ErrNotFound
 	}
 
 	return u, err
 }
 
-func (ur *userDBRepository) HasByLogin(login string) (bool, error) {
+func (ur *userRepository) HasByLogin(login string) (bool, error) {
 	sb := newSelectBuilder()
 
 	query, args := sb.Select("*").From(userTableName).Where(sb.Equal("login", login)).Limit(1).Build()
 
-	res, err := ur.db.Exec(query, args...)
+	res, err := ur.conn.Exec(query, args...)
 	if err != nil {
 		return false, err
 	}
@@ -60,29 +51,29 @@ func (ur *userDBRepository) HasByLogin(login string) (bool, error) {
 	return ra > 0, err
 }
 
-func (ur *userDBRepository) GetByTgID(id int64) (*model.User, error) {
+func (ur *userRepository) GetByTgID(id int64) (*model.User, error) {
 	sb := newSelectBuilder()
 
 	query, args := sb.Select("*").From(userTableName).Where(sb.Equal("tg_id", id)).Limit(1).Build()
 
 	u := new(model.User)
 
-	row := ur.db.QueryRow(query, args...)
+	row := ur.conn.QueryRow(query, args...)
 	err := row.Scan(u.GetFieldPointers()...)
 
 	if err != nil && errors.Is(err, sql.ErrNoRows) {
-		return nil, ErrNotFound
+		return nil, repository.ErrNotFound
 	}
 
 	return u, err
 }
 
-func (ur *userDBRepository) HasByTgID(id int64) (bool, error) {
+func (ur *userRepository) HasByTgID(id int64) (bool, error) {
 	sb := newSelectBuilder()
 
 	query, args := sb.Select("*").From(userTableName).Where(sb.Equal("tg_id", id)).Limit(1).Build()
 
-	res, err := ur.db.Exec(query, args...)
+	res, err := ur.conn.Exec(query, args...)
 	if err != nil {
 		return false, err
 	}
@@ -92,7 +83,7 @@ func (ur *userDBRepository) HasByTgID(id int64) (bool, error) {
 	return ra > 0, err
 }
 
-func (ur *userDBRepository) Add(ctx context.Context, user *model.User) error {
+func (ur *userRepository) Add(ctx context.Context, user *model.User) error {
 	user.BeforeAdd()
 
 	if err := user.Validate(); err != nil {
@@ -108,7 +99,7 @@ func (ur *userDBRepository) Add(ctx context.Context, user *model.User) error {
 
 	var id int
 
-	conn := transaction.TxOrDB(ctx, ur.db)
+	conn := database.TxOrDB(ctx, ur.conn)
 	row := conn.QueryRow(query, args...)
 	if err := row.Scan(&id); err != nil {
 		return err
@@ -119,7 +110,7 @@ func (ur *userDBRepository) Add(ctx context.Context, user *model.User) error {
 	return nil
 }
 
-func (ur *userDBRepository) Update(user *model.User) error {
+func (ur *userRepository) Update(user *model.User) error {
 	user.BeforeUpdate()
 
 	if err := user.Validate(); err != nil {
@@ -137,12 +128,12 @@ func (ur *userDBRepository) Update(user *model.User) error {
 		Where(ub.Equal("id", user.ID)).
 		Build()
 
-	_, err := ur.db.Exec(query, args...)
+	_, err := ur.conn.Exec(query, args...)
 
 	return err
 }
 
-func (ur *userDBRepository) Remove(user *model.User) error {
+func (ur *userRepository) Remove(user *model.User) error {
 	if err := user.Validate(); err != nil {
 		return err
 	}
@@ -153,7 +144,7 @@ func (ur *userDBRepository) Remove(user *model.User) error {
 		Where(db.Equal("id", user.ID)).
 		Build()
 
-	_, err := ur.db.Exec(query, args...)
+	_, err := ur.conn.Exec(query, args...)
 
 	return err
 }

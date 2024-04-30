@@ -6,13 +6,16 @@ import (
 	"log/slog"
 	"meet/internal/config"
 	"meet/internal/pkg/app"
-	"meet/internal/pkg/app/helper"
+	"meet/internal/pkg/app/database"
 	"meet/internal/pkg/app/model"
+	"meet/internal/pkg/app/rdatabase"
 	"meet/internal/pkg/app/repository"
+	"meet/internal/pkg/app/repository/dbrepository"
+	"meet/internal/pkg/app/repository/rdbrepository"
 	"meet/internal/pkg/app/service"
+	"meet/internal/pkg/app/slogger"
 	"meet/internal/pkg/tgbot/command"
 	"meet/internal/pkg/tgbot/router"
-
 	routercommand "meet/internal/pkg/tgbot/router/command"
 	routerstate "meet/internal/pkg/tgbot/router/state"
 	"path/filepath"
@@ -34,42 +37,28 @@ func main() {
 
 	err := godotenv.Load(rootDir + "/.env")
 	if err != nil {
-		slog.Warn(err.Error())
-		return
+		panic(err)
 	}
 
 	cfg := config.FromEnv(rootDir)
 
-	logF, err := helper.OpenLogFile(rootDir)
-	if err != nil {
-		slog.Warn(err.Error())
-		return
-	}
+	logF := slogger.MustOpenLog(rootDir)
 	defer logF.Close()
-	helper.ConfigureSlogger(cfg.Debug, logF)
 
-	db, err := helper.LoadDB(cfg.DB)
-	if err != nil {
-		slog.Warn(err.Error())
-		return
-	}
+	slogger.Configure(cfg.Debug, logF)
 
-	rdb, err := helper.LoadRDB(cfg.Redis)
-	if err != nil {
-		slog.Warn(err.Error())
-		return
-	}
+	db := database.MustConnect(cfg.DB)
+	rdb := rdatabase.MustConnect(cfg.Redis)
 
-	questionnaireRepository = repository.NewQuestionnaireDBRepository(db, repository.NewPhotoDBRepository(db))
+	questionnaireRepository = dbrepository.NewQuestionnaireRepository(db)
 	userService = service.NewUserService(
-		repository.NewUserDBRepository(db),
-		repository.NewUserRedisRepository(rdb),
+		dbrepository.NewUserRepository(db),
+		rdbrepository.NewUserRedisRepository(rdb),
 	)
 
 	bot, err := tgbotapi.NewBotAPI(cfg.TgBot.Token)
 	if err != nil {
-		slog.Warn(err.Error())
-		return
+		panic(err)
 	}
 
 	bot.Debug = cfg.Debug
@@ -135,10 +124,14 @@ func identifier(message *tgbotapi.Message, questionnaire *model.Questionnaire) s
 }
 
 func configuredRouter(db *sql.DB) router.Matcher {
-	questionnaireService := service.NewQuestionnaireService(questionnaireRepository)
+	var (
+		questionnaireService = service.NewQuestionnaireService(questionnaireRepository)
+	)
 
-	startCommand := command.NewStartCommand(db, userService, questionnaireService)
-	questionnaireCommand := command.NewQuestionnaireCommand(questionnaireRepository, questionnaireService)
+	var (
+		startCommand         = command.NewStartCommand(db, userService, questionnaireService)
+		questionnaireCommand = command.NewQuestionnaireCommand(questionnaireRepository, questionnaireService)
+	)
 
 	commandR := router.New()
 	routercommand.NewConfigurator(startCommand).Configure(commandR)

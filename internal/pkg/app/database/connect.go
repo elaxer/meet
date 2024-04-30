@@ -1,4 +1,4 @@
-package helper
+package database
 
 import (
 	"database/sql"
@@ -6,7 +6,7 @@ import (
 	"meet/internal/config"
 )
 
-func LoadDB(dbConfig *config.DBConfig) (*sql.DB, error) {
+func Connect(dbConfig *config.DBConfig) (*sql.DB, error) {
 	db, err := sql.Open(
 		dbConfig.DriverName,
 		fmt.Sprintf(
@@ -27,5 +27,14 @@ func LoadDB(dbConfig *config.DBConfig) (*sql.DB, error) {
 		return nil, err
 	}
 
-	return db, err
+	return db, nil
+}
+
+func MustConnect(dbConfig *config.DBConfig) *sql.DB {
+	db, err := Connect(dbConfig)
+	if err != nil {
+		panic(err)
+	}
+
+	return db
 }

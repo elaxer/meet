@@ -9,9 +9,13 @@ import (
 	"meet/internal/pkg/api/handler"
 	"meet/internal/pkg/api/middleware"
 	"meet/internal/pkg/api/router"
+	"meet/internal/pkg/app/database"
 	"meet/internal/pkg/app/helper"
-	"meet/internal/pkg/app/repository"
+	"meet/internal/pkg/app/rdatabase"
+	"meet/internal/pkg/app/repository/dbrepository"
+	"meet/internal/pkg/app/repository/rdbrepository"
 	"meet/internal/pkg/app/service"
+	"meet/internal/pkg/app/slogger"
 	"net/http"
 	"os"
 	"os/signal"
@@ -31,32 +35,20 @@ func main() {
 	rootDir, _ := filepath.Abs(filepath.Dir(b) + "/../..")
 
 	if err := godotenv.Load(rootDir + "/.env"); err != nil {
-		slog.Warn(err.Error())
-		return
+		panic(err)
 	}
 
 	cfg := config.FromEnv(rootDir)
 
-	logF, err := helper.OpenLogFile(rootDir)
-	if err != nil {
-		slog.Warn(err.Error())
-		return
-	}
+	logF := slogger.MustOpenLog(rootDir)
 	defer logF.Close()
-	helper.ConfigureSlogger(cfg.Debug, logF)
 
-	db, err := helper.LoadDB(cfg.DB)
-	if err != nil {
-		slog.Warn(err.Error())
-		return
-	}
+	slogger.Configure(cfg.Debug, logF)
+
+	db := database.MustConnect(cfg.DB)
 	defer db.Close()
 
-	rdb, err := helper.LoadRDB(cfg.Redis)
-	if err != nil {
-		slog.Warn(err.Error())
-		return
-	}
+	rdb := rdatabase.MustConnect(cfg.Redis)
 	defer rdb.Close()
 
 	serve(cfg, db, rdb)
@@ -94,38 +86,48 @@ func serve(cfg *config.Config, db *sql.DB, rdb *redis.Client) {
 }
 
 func httpHandler(cfg *config.Config, db *sql.DB, rdb *redis.Client) http.Handler {
-	urlHelper := helper.NewURLHelper(cfg.Server, cfg.Path.UploadDirs)
-	pathHelper := helper.NewPathHelper(cfg.Path)
+	var conn = database.NewConnectionLogging(db)
 
-	assessmentRepository := repository.NewAssessmentDBRepository(db)
-	messageRepository := repository.NewMessageDBRepository(db)
-	photoRepository := repository.NewPhotoDBRepository(db)
-	questionnaireRepository := repository.NewQuestionnaireDBRepository(db, photoRepository)
-	userDBRepository := repository.NewUserDBRepository(db)
+	var (
+		urlHelper  = helper.NewURLHelper(cfg.Server, cfg.Path.UploadDirs)
+		pathHelper = helper.NewPathHelper(cfg.Path)
+	)
 
-	userRedisRepository := repository.NewUserRedisRepository(rdb)
-	countryRepository := repository.NewCountryDBRepository(db)
-	cityRepository := repository.NewCityDBRepository(db)
-	coupleRepository := repository.NewCoupleDBRepository(db)
+	var (
+		assessmentRepository    = dbrepository.NewAssessmentRepository(conn)
+		messageRepository       = dbrepository.NewMessageRepository(conn)
+		photoRepository         = dbrepository.NewPhotoRepository(conn)
+		questionnaireRepository = dbrepository.NewQuestionnaireRepository(conn)
+		userDBRepository        = dbrepository.NewUserRepository(conn)
+		userRedisRepository     = rdbrepository.NewUserRedisRepository(rdb)
 
-	assessmentService := service.NewAssessmentService(db, assessmentRepository, coupleRepository, questionnaireRepository)
-	userService := service.NewUserService(userDBRepository, userRedisRepository)
-	authService := service.NewAuthService(cfg.JWT, userDBRepository, userRedisRepository, userService)
-	fileUploaderService := service.NewFileUploaderService(pathHelper, cfg.Path)
-	messageService := service.NewMessageService(messageRepository, coupleRepository)
-	photoService := service.NewPhotoService(pathHelper, photoRepository, questionnaireRepository, fileUploaderService)
-	questionnaireService := service.NewQuestionnaireService(questionnaireRepository)
+		countryRepository = dbrepository.NewCountryRepository(conn)
+		cityRepository    = dbrepository.NewCityRepository(conn)
+		coupleRepository  = dbrepository.NewCoupleRepository(conn)
+	)
 
-	authorizeMiddleware := middleware.NewAuthorizeMiddleware(authService)
+	var (
+		assessmentService    = service.NewAssessmentService(db, assessmentRepository, coupleRepository, questionnaireRepository)
+		userService          = service.NewUserService(userDBRepository, userRedisRepository)
+		authService          = service.NewAuthService(cfg.JWT, userDBRepository, userRedisRepository, userService)
+		fileUploaderService  = service.NewFileUploaderService(pathHelper, cfg.Path)
+		messageService       = service.NewMessageService(messageRepository, coupleRepository)
+		photoService         = service.NewPhotoService(urlHelper, pathHelper, photoRepository, questionnaireRepository, fileUploaderService)
+		questionnaireService = service.NewQuestionnaireService(questionnaireRepository)
+	)
 
-	assessmentHandler := handler.NewAssessmentHandler(assessmentService)
-	authHandler := handler.NewAuthHandler(authService)
-	messageHandler := handler.NewMessageHandler(messageRepository, messageService)
-	photoHandler := handler.NewPhotoHandler(urlHelper, photoRepository, photoService)
-	questionnaireHandler := handler.NewQuestionnaireHandler(urlHelper, questionnaireRepository, questionnaireService)
-	swaggerHandler := handler.NewSwaggerHandler(cfg.Path)
-	userHandler := handler.NewUserHandler(userDBRepository, userService)
-	dictionaryHandler := handler.NewDictionaryHandler(countryRepository, cityRepository)
+	var authorizeMiddleware = middleware.NewAuthorizeMiddleware(authService)
+
+	var (
+		assessmentHandler    = handler.NewAssessmentHandler(assessmentService)
+		authHandler          = handler.NewAuthHandler(authService)
+		messageHandler       = handler.NewMessageHandler(messageRepository, messageService)
+		photoHandler         = handler.NewPhotoHandler(urlHelper, photoRepository, photoService)
+		questionnaireHandler = handler.NewQuestionnaireHandler(questionnaireRepository, questionnaireService, photoService)
+		swaggerHandler       = handler.NewSwaggerHandler(cfg.Path)
+		userHandler          = handler.NewUserHandler(userDBRepository, userService)
+		dictionaryHandler    = handler.NewDictionaryHandler(countryRepository, cityRepository)
+	)
 
 	rc := router.NewConfigurator(
 		cfg.Path,

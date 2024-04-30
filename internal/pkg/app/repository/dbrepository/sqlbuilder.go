@@ -1,4 +1,4 @@
-package repository
+package dbrepository
 
 import "github.com/huandu/go-sqlbuilder"
 

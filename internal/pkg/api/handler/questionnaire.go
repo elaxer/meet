@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"meet/internal/pkg/api"
 	"meet/internal/pkg/app"
-	"meet/internal/pkg/app/helper"
 	"meet/internal/pkg/app/model"
 	"meet/internal/pkg/app/repository"
 	"meet/internal/pkg/app/service"
@@ -29,17 +28,17 @@ type QuestionnaireHandler interface {
 }
 
 type questionnaireHandler struct {
-	urlHelper               helper.URLHelper
 	questionnaireRepository repository.QuestionnaireRepository
 	questionnaireService    service.QuestionnaireService
+	photoService            service.PhotoService
 }
 
 func NewQuestionnaireHandler(
-	urlHelper helper.URLHelper,
 	questionnaireRepository repository.QuestionnaireRepository,
 	questionnaireService service.QuestionnaireService,
+	photoService service.PhotoService,
 ) QuestionnaireHandler {
-	return &questionnaireHandler{urlHelper, questionnaireRepository, questionnaireService}
+	return &questionnaireHandler{questionnaireRepository, questionnaireService, photoService}
 }
 
 func (qh *questionnaireHandler) Me(w http.ResponseWriter, r *http.Request) {
@@ -52,7 +51,11 @@ func (qh *questionnaireHandler) Me(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	qh.urlHelper.SetQuestionnairePhotos(q)
+	if err := qh.photoService.Attach(q); err != nil {
+		api.ResponseError(w, err, api.GetStatusCode(err))
+
+		return
+	}
 
 	api.ResponseObject(w, q, http.StatusOK)
 }
@@ -71,7 +74,11 @@ func (qh *questionnaireHandler) Couples(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	qh.urlHelper.SetQuestionnairePhotos(qs...)
+	if err := qh.photoService.Attach(qs...); err != nil {
+		api.ResponseError(w, err, api.GetStatusCode(err))
+
+		return
+	}
 
 	api.ResponseObject(w, qs, http.StatusOK)
 }
@@ -90,7 +97,11 @@ func (qh *questionnaireHandler) Suggested(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	qh.urlHelper.SetQuestionnairePhotos(qs...)
+	if err := qh.photoService.Attach(qs...); err != nil {
+		api.ResponseError(w, err, api.GetStatusCode(err))
+
+		return
+	}
 
 	api.ResponseObject(w, qs, http.StatusOK)
 }
@@ -109,8 +120,11 @@ func (qh *questionnaireHandler) Assessed(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	qh.urlHelper.SetQuestionnairePhotos(qs...)
+	if err := qh.photoService.Attach(qs...); err != nil {
+		api.ResponseError(w, err, api.GetStatusCode(err))
 
+		return
+	}
 	api.ResponseObject(w, qs, http.StatusOK)
 }
 
@@ -132,7 +146,11 @@ func (qh *questionnaireHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	qh.urlHelper.SetQuestionnairePhotos(q)
+	if err := qh.photoService.Attach(q); err != nil {
+		api.ResponseError(w, err, api.GetStatusCode(err))
+
+		return
+	}
 
 	api.ResponseObject(w, q, http.StatusCreated)
 }
@@ -155,7 +173,11 @@ func (qh *questionnaireHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	qh.urlHelper.SetQuestionnairePhotos(q)
+	if err := qh.photoService.Attach(q); err != nil {
+		api.ResponseError(w, err, api.GetStatusCode(err))
+
+		return
+	}
 
 	api.ResponseObject(w, q, http.StatusOK)
 }

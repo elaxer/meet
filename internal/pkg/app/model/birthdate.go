@@ -9,19 +9,6 @@ import (
 	"github.com/guregu/null"
 )
 
-const (
-	AgeMin = 18
-	AgeMax = 65
-)
-
-var (
-	errAgeMin = NewValidationError("age", "возраст должен быть не менее %d лет", AgeMin)
-	errAgeMax = NewValidationError("age", "возраст должен быть не менее %d лет", AgeMax)
-
-	errAgeRangeInvalid = NewValidationError("age_range", "минимальный возраст не может быть больше максимального возраста")
-)
-
-// todo
 type BirthDate struct{ null.Time }
 
 func NewBirthDate(year int, month time.Month, day int) BirthDate {
@@ -80,10 +67,10 @@ func (bd BirthDate) Validate(currentTime time.Time) error {
 
 	age := bd.Age(currentTime)
 
-	if age < AgeMin {
+	if age < ageMin {
 		errs.Append(errAgeMin)
 	}
-	if age > AgeMax {
+	if age > ageMax {
 		errs.Append(errAgeMax)
 	}
 
@@ -109,39 +96,4 @@ func (b *BirthDate) Scan(value interface{}) error {
 	}
 
 	return nil
-}
-
-type AgeRange struct {
-	Min null.Int `json:"min"`
-	Max null.Int `json:"max"`
-}
-
-func NewAgeRange(min, max int) AgeRange {
-	return AgeRange{null.IntFrom(int64(min)), null.IntFrom(int64(max))}
-}
-
-func (ar *AgeRange) Validate() error {
-	errs := &ValidationErrors{}
-
-	if ar.Min.Valid && ar.Min.Int64 < AgeMin {
-		errs.Append(errAgeMin)
-	}
-
-	if ar.Max.Valid && ar.Max.Int64 > AgeMax {
-		errs.Append(errAgeMin)
-	}
-
-	if ar.Min.Valid && ar.Max.Valid && ar.Min.Int64 > ar.Max.Int64 {
-		errs.Append(errAgeRangeInvalid)
-	}
-
-	if errs.Empty() {
-		return nil
-	}
-
-	return errs
-}
-
-func (ar *AgeRange) InRange(age int) bool {
-	return age >= int(ar.Min.Int64) && age <= int(ar.Max.Int64)
 }

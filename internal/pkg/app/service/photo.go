@@ -18,11 +18,13 @@ var (
 )
 
 type PhotoService interface {
+	Attach(questionnaires ...*model.Questionnaire) error
 	Upload(userID int, file io.ReadSeeker) (*model.Photo, error)
 	Delete(userID, photoID int) (*model.Photo, error)
 }
 
 type photoService struct {
+	urlHelper               helper.URLHelper
 	pathHelper              helper.PathHelper
 	photoRepository         repository.PhotoRepository
 	questionnaireRepository repository.QuestionnaireRepository
@@ -30,12 +32,30 @@ type photoService struct {
 }
 
 func NewPhotoService(
+	urlHelper helper.URLHelper,
 	pathHelper helper.PathHelper,
 	photoRepository repository.PhotoRepository,
 	questionnaireRepository repository.QuestionnaireRepository,
 	fileUploaderService FileUploaderService,
 ) PhotoService {
-	return &photoService{pathHelper, photoRepository, questionnaireRepository, fileUploaderService}
+	return &photoService{urlHelper, pathHelper, photoRepository, questionnaireRepository, fileUploaderService}
+}
+
+func (ps *photoService) Attach(questionnaires ...*model.Questionnaire) error {
+	for _, q := range questionnaires {
+		photos, err := ps.photoRepository.GetByQuestionnaireID(q.ID)
+		if err != nil {
+			return err
+		}
+
+		for _, p := range photos {
+			p.URL = ps.urlHelper.UploadURL(p.Path, app.UploadTypeImage, q.UserID)
+		}
+
+		q.Photos = append(q.Photos, photos...)
+	}
+
+	return nil
 }
 
 func (ps *photoService) Upload(userID int, fileReaderSeeker io.ReadSeeker) (*model.Photo, error) {

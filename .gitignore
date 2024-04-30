@@ -1,5 +1,5 @@
 .env
 vendor/
 .vscode/
-database/
+docker/volumes/database
 .DS_Store

@@ -2,7 +2,9 @@ package model
 
 import "strings"
 
-const messageLenMax = 2048
+const (
+	messageLenMax = 2048
+)
 
 var (
 	errMessageTextEmpty   = NewValidationError("text", "текст сообщения не может быть пустым")

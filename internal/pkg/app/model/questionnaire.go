@@ -32,6 +32,9 @@ var (
 )
 
 const (
+	ageMin = 18
+	ageMax = 65
+
 	questionnaireAboutLengthMax = 2048
 	questionnaireNameLengthMin  = 2
 	questionnaireNameLengthMax  = 32
@@ -79,6 +82,9 @@ var questionnaireEventDes = []fsm.EventDesc{
 var (
 	errQuestionnaireNameTooShort = NewValidationError("name", "длина имени должна быть не менее %d символов", questionnaireNameLengthMin)
 	errQuestionnaireNameTooLong  = NewValidationError("name", "длина имени должна быть не более %d символов", questionnaireNameLengthMax)
+
+	errAgeMin = NewValidationError("age", "возраст должен быть не менее %d лет", ageMin)
+	errAgeMax = NewValidationError("age", "возраст должен быть не менее %d лет", ageMax)
 
 	errQuestionnaireAboutTooLong = NewValidationError("about", "текст описания анкеты не должен превышать %d символов", questionnaireAboutLengthMax)
 )

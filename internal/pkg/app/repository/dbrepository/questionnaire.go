@@ -1,11 +1,12 @@
-package repository
+package dbrepository
 
 import (
 	"context"
 	"database/sql"
 	"errors"
+	"meet/internal/pkg/app/database"
 	"meet/internal/pkg/app/model"
-	"meet/internal/pkg/app/repository/transaction"
+	"meet/internal/pkg/app/repository"
 
 	"github.com/huandu/go-sqlbuilder"
 )
@@ -13,29 +14,17 @@ import (
 // questionnaireTableName represents the name of the questionnaires table
 const questionnaireTableName = "questionnaires"
 
-// QuestionnaireRepository is repository for model.Questionnaire model
-type QuestionnaireRepository interface {
-	GetByUserID(userID int) (*model.Questionnaire, error)
-	HasByUserID(userID int) (bool, error)
-	Couples(userID, limit, offset int) ([]*model.Questionnaire, error)
-	Suggested(userID, limit, offset int) ([]*model.Questionnaire, error)
-	Assessed(userID, limit, offset int) ([]*model.Questionnaire, error)
-	Add(ctx context.Context, questionnaire *model.Questionnaire) error
-	Update(questionnaire *model.Questionnaire) error
+type questionnaireRepository struct {
+	conn database.Connection
 }
 
-type questionnaireDBRepository struct {
-	db              *sql.DB
-	photoRepository PhotoRepository
-}
-
-// newQuestionnaireRepository is the constructor of the questionnaireDBRepository
-func NewQuestionnaireDBRepository(db *sql.DB, photoRepository PhotoRepository) QuestionnaireRepository {
-	return &questionnaireDBRepository{db, photoRepository}
+// NewQuestionnaireRepository is the constructor of the questionnaireDBRepository
+func NewQuestionnaireRepository(conn database.Connection) repository.QuestionnaireRepository {
+	return &questionnaireRepository{conn}
 }
 
 // GetByUserID implements QuestionnaireRepository interface
-func (qr *questionnaireDBRepository) GetByUserID(userID int) (*model.Questionnaire, error) {
+func (qr *questionnaireRepository) GetByUserID(userID int) (*model.Questionnaire, error) {
 	sb := newSelectBuilder()
 	query, args := sb.Select("*").
 		From(questionnaireTableName).
@@ -45,25 +34,21 @@ func (qr *questionnaireDBRepository) GetByUserID(userID int) (*model.Questionnai
 
 	q := model.NewQuestionnaireEmpty()
 
-	row := qr.db.QueryRow(query, args...)
+	row := qr.conn.QueryRow(query, args...)
 	err := row.Scan(q.GetFieldPointers()...)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrNotFound
+			return nil, repository.ErrNotFound
 		}
 		return nil, err
 	}
 
 	q.FSM.SetState(q.State())
-	q.Photos, err = qr.photoRepository.GetByQuestionnaireID(q.ID)
-	if err != nil {
-		return nil, err
-	}
 
-	return q, err
+	return q, nil
 }
 
-func (qr *questionnaireDBRepository) HasByUserID(userID int) (bool, error) {
+func (qr *questionnaireRepository) HasByUserID(userID int) (bool, error) {
 	sb := newSelectBuilder()
 	query, args := sb.Select("1").
 		From(questionnaireTableName).
@@ -71,7 +56,7 @@ func (qr *questionnaireDBRepository) HasByUserID(userID int) (bool, error) {
 		Limit(1).
 		Build()
 
-	res, err := qr.db.Exec(query, args...)
+	res, err := qr.conn.Exec(query, args...)
 	if err != nil {
 		return false, err
 	}
@@ -83,7 +68,7 @@ func (qr *questionnaireDBRepository) HasByUserID(userID int) (bool, error) {
 
 // Couples реализует интерфейс UserRepository
 // Couples возвращает список анкет, с которыми пользователь состоит в паре
-func (qr *questionnaireDBRepository) Couples(userID, limit, offset int) ([]*model.Questionnaire, error) {
+func (qr *questionnaireRepository) Couples(userID, limit, offset int) ([]*model.Questionnaire, error) {
 	sb := newSelectBuilder()
 	query, args := sb.
 		Select("q.*").
@@ -108,7 +93,7 @@ func (qr *questionnaireDBRepository) Couples(userID, limit, offset int) ([]*mode
 
 	questionnaires := make([]*model.Questionnaire, 0, limit)
 
-	rows, err := qr.db.Query(query, args...)
+	rows, err := qr.conn.Query(query, args...)
 	if err != nil {
 		return questionnaires, err
 	}
@@ -123,10 +108,6 @@ func (qr *questionnaireDBRepository) Couples(userID, limit, offset int) ([]*mode
 		}
 
 		q.FSM.SetState(q.State())
-		q.Photos, err = qr.photoRepository.GetByQuestionnaireID(q.ID)
-		if err != nil {
-			return questionnaires[0:0], err
-		}
 
 		questionnaires = append(questionnaires, q)
 	}
@@ -134,7 +115,7 @@ func (qr *questionnaireDBRepository) Couples(userID, limit, offset int) ([]*mode
 	return questionnaires, nil
 }
 
-func (qr *questionnaireDBRepository) Suggested(userID, limit, offset int) ([]*model.Questionnaire, error) {
+func (qr *questionnaireRepository) Suggested(userID, limit, offset int) ([]*model.Questionnaire, error) {
 	sb := newSelectBuilder()
 	query, args := sb.
 		Select("q.*").
@@ -150,7 +131,7 @@ func (qr *questionnaireDBRepository) Suggested(userID, limit, offset int) ([]*mo
 
 	questionnaires := make([]*model.Questionnaire, 0, limit)
 
-	rows, err := qr.db.Query(query, args...)
+	rows, err := qr.conn.Query(query, args...)
 	if err != nil {
 		return questionnaires, err
 	}
@@ -158,16 +139,11 @@ func (qr *questionnaireDBRepository) Suggested(userID, limit, offset int) ([]*mo
 
 	for rows.Next() {
 		q := model.NewQuestionnaireEmpty()
-		err := rows.Scan(q.GetFieldPointers()...)
-		if err != nil {
+		if err := rows.Scan(q.GetFieldPointers()...); err != nil {
 			return questionnaires[0:0], err
 		}
 
 		q.FSM.SetState(q.State())
-		q.Photos, err = qr.photoRepository.GetByQuestionnaireID(q.ID)
-		if err != nil {
-			return questionnaires[0:0], err
-		}
 
 		questionnaires = append(questionnaires, q)
 	}
@@ -175,7 +151,7 @@ func (qr *questionnaireDBRepository) Suggested(userID, limit, offset int) ([]*mo
 	return questionnaires, nil
 }
 
-func (qr *questionnaireDBRepository) Assessed(userID, limit, offset int) ([]*model.Questionnaire, error) {
+func (qr *questionnaireRepository) Assessed(userID, limit, offset int) ([]*model.Questionnaire, error) {
 	sb := newSelectBuilder()
 	query, args := sb.
 		Select("q.*").
@@ -186,7 +162,7 @@ func (qr *questionnaireDBRepository) Assessed(userID, limit, offset int) ([]*mod
 
 	questionnaires := make([]*model.Questionnaire, 0, limit)
 
-	rows, err := qr.db.Query(query, args...)
+	rows, err := qr.conn.Query(query, args...)
 	if err != nil {
 		return questionnaires, err
 	}
@@ -194,16 +170,11 @@ func (qr *questionnaireDBRepository) Assessed(userID, limit, offset int) ([]*mod
 
 	for rows.Next() {
 		q := model.NewQuestionnaireEmpty()
-		err := rows.Scan(q.GetFieldPointers()...)
-		if err != nil {
+		if err := rows.Scan(q.GetFieldPointers()...); err != nil {
 			return questionnaires[0:0], err
 		}
 
 		q.FSM.SetState(q.State())
-		q.Photos, err = qr.photoRepository.GetByQuestionnaireID(q.ID)
-		if err != nil {
-			return questionnaires[0:0], err
-		}
 
 		questionnaires = append(questionnaires, q)
 	}
@@ -211,7 +182,7 @@ func (qr *questionnaireDBRepository) Assessed(userID, limit, offset int) ([]*mod
 	return questionnaires, nil
 }
 
-func (qr *questionnaireDBRepository) Add(ctx context.Context, questionnaire *model.Questionnaire) error {
+func (qr *questionnaireRepository) Add(ctx context.Context, questionnaire *model.Questionnaire) error {
 	questionnaire.BeforeAdd()
 
 	if err := questionnaire.Validate(); err != nil {
@@ -253,9 +224,7 @@ func (qr *questionnaireDBRepository) Add(ctx context.Context, questionnaire *mod
 		Build()
 
 	var id int
-
-	conn := transaction.TxOrDB(ctx, qr.db)
-	row := conn.QueryRow(query, args...)
+	row := database.TxOrDB(ctx, qr.conn).QueryRow(query, args...)
 	if err := row.Scan(&id); err != nil {
 		return err
 	}
@@ -265,7 +234,7 @@ func (qr *questionnaireDBRepository) Add(ctx context.Context, questionnaire *mod
 	return nil
 }
 
-func (qr *questionnaireDBRepository) Update(questionnaire *model.Questionnaire) error {
+func (qr *questionnaireRepository) Update(questionnaire *model.Questionnaire) error {
 	questionnaire.BeforeUpdate()
 
 	if err := questionnaire.Validate(); err != nil {
@@ -295,7 +264,7 @@ func (qr *questionnaireDBRepository) Update(questionnaire *model.Questionnaire) 
 
 	queryStr, args := query.Build()
 
-	_, err := qr.db.Exec(queryStr, args...)
+	_, err := qr.conn.Exec(queryStr, args...)
 
 	return err
 }

@@ -1,28 +1,23 @@
-package repository
+package dbrepository
 
 import (
 	"context"
-	"database/sql"
+	"meet/internal/pkg/app/database"
 	"meet/internal/pkg/app/model"
-	"meet/internal/pkg/app/repository/transaction"
+	"meet/internal/pkg/app/repository"
 )
 
 const coupleTableName = "couples"
 
-type CoupleRepository interface {
-	Has(usersDirection model.Direction) (bool, error)
-	Add(ctx context.Context, couple *model.Couple) error
+type coupleRepository struct {
+	conn database.Connection
 }
 
-type coupleDBRepository struct {
-	db *sql.DB
+func NewCoupleRepository(conn database.Connection) repository.CoupleRepository {
+	return &coupleRepository{conn}
 }
 
-func NewCoupleDBRepository(db *sql.DB) CoupleRepository {
-	return &coupleDBRepository{db}
-}
-
-func (cr *coupleDBRepository) Has(usersDirection model.Direction) (bool, error) {
+func (cr *coupleRepository) Has(usersDirection model.Direction) (bool, error) {
 	if err := usersDirection.Validate(); err != nil {
 		return false, err
 	}
@@ -40,7 +35,7 @@ func (cr *coupleDBRepository) Has(usersDirection model.Direction) (bool, error) 
 		Limit(1).
 		Build()
 
-	res, err := cr.db.Exec(query, args...)
+	res, err := cr.conn.Exec(query, args...)
 	if err != nil {
 		return false, err
 	}
@@ -50,7 +45,7 @@ func (cr *coupleDBRepository) Has(usersDirection model.Direction) (bool, error) 
 	return ra > 0, err
 }
 
-func (cr *coupleDBRepository) Add(ctx context.Context, couple *model.Couple) error {
+func (cr *coupleRepository) Add(ctx context.Context, couple *model.Couple) error {
 	couple.BeforeAdd()
 
 	if err := couple.Validate(); err != nil {
@@ -63,7 +58,7 @@ func (cr *coupleDBRepository) Add(ctx context.Context, couple *model.Couple) err
 		Values(couple.CreatedAt, couple.UpdatedAt, couple.UsersDirection.FromID, couple.UsersDirection.ToID).
 		Build()
 
-	conn := transaction.TxOrDB(ctx, cr.db)
+	conn := database.TxOrDB(ctx, cr.conn)
 	_, err := conn.Exec(query, args...)
 
 	return err

@@ -1,38 +1,32 @@
-package repository
+package dbrepository
 
 import (
 	"database/sql"
 	"errors"
+	"meet/internal/pkg/app/database"
 	"meet/internal/pkg/app/model"
+	"meet/internal/pkg/app/repository"
 )
 
 const messageTableName = "messages"
 
-type MessageRepository interface {
-	Get(id int) (*model.Message, error)
-	GetList(usersDirection model.Direction, limit, offset int) ([]*model.Message, error)
-	UnreadCount(userID int) (int, error)
-	Add(message *model.Message) error
-	Update(message *model.Message) error
+type messageRepository struct {
+	conn database.Connection
 }
 
-type messageDBRepository struct {
-	db *sql.DB
+func NewMessageRepository(conn database.Connection) repository.MessageRepository {
+	return &messageRepository{conn}
 }
 
-func NewMessageDBRepository(db *sql.DB) MessageRepository {
-	return &messageDBRepository{db}
-}
-
-func (mr *messageDBRepository) Get(id int) (*model.Message, error) {
+func (mr *messageRepository) Get(id int) (*model.Message, error) {
 	sb := newSelectBuilder()
 	query, args := sb.Select("*").From(messageTableName).Where(sb.Equal("id", id)).Limit(1).Build()
 
 	m := new(model.Message)
-	row := mr.db.QueryRow(query, args...)
+	row := mr.conn.QueryRow(query, args...)
 	if err := row.Scan(m.GetFieldPointers()...); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrNotFound
+			return nil, repository.ErrNotFound
 		}
 
 		return nil, err
@@ -41,7 +35,7 @@ func (mr *messageDBRepository) Get(id int) (*model.Message, error) {
 	return m, nil
 }
 
-func (mr *messageDBRepository) GetList(usersDirection model.Direction, limit, offset int) ([]*model.Message, error) {
+func (mr *messageRepository) GetList(usersDirection model.Direction, limit, offset int) ([]*model.Message, error) {
 	messages := make([]*model.Message, 0, limit)
 
 	sb := newSelectBuilder()
@@ -59,7 +53,7 @@ func (mr *messageDBRepository) GetList(usersDirection model.Direction, limit, of
 		Offset(offset).
 		Build()
 
-	rows, err := mr.db.Query(query, args...)
+	rows, err := mr.conn.Query(query, args...)
 	if err != nil {
 		return messages[0:0], err
 	}
@@ -77,7 +71,7 @@ func (mr *messageDBRepository) GetList(usersDirection model.Direction, limit, of
 	return messages, nil
 }
 
-func (mr *messageDBRepository) UnreadCount(userID int) (int, error) {
+func (mr *messageRepository) UnreadCount(userID int) (int, error) {
 	sb := newSelectBuilder()
 
 	query, args := sb.
@@ -87,7 +81,7 @@ func (mr *messageDBRepository) UnreadCount(userID int) (int, error) {
 		Where(sb.Equal("is_readed", false)).
 		Build()
 
-	r, err := mr.db.Exec(query, args...)
+	r, err := mr.conn.Exec(query, args...)
 	if err != nil {
 		return 0, err
 	}
@@ -97,7 +91,7 @@ func (mr *messageDBRepository) UnreadCount(userID int) (int, error) {
 	return int(ra), err
 }
 
-func (mr *messageDBRepository) Add(message *model.Message) error {
+func (mr *messageRepository) Add(message *model.Message) error {
 	message.BeforeAdd()
 
 	if err := message.Validate(); err != nil {
@@ -124,7 +118,7 @@ func (mr *messageDBRepository) Add(message *model.Message) error {
 		Build()
 
 	var id int
-	row := mr.db.QueryRow(query, args...)
+	row := mr.conn.QueryRow(query, args...)
 	if err := row.Scan(&id); err != nil {
 		message.ID = id
 	}
@@ -132,7 +126,7 @@ func (mr *messageDBRepository) Add(message *model.Message) error {
 	return nil
 }
 
-func (mr *messageDBRepository) Update(message *model.Message) error {
+func (mr *messageRepository) Update(message *model.Message) error {
 	message.BeforeUpdate()
 
 	if err := message.Validate(); err != nil {
@@ -149,7 +143,7 @@ func (mr *messageDBRepository) Update(message *model.Message) error {
 		).
 		Build()
 
-	_, err := mr.db.Exec(query, args...)
+	_, err := mr.conn.Exec(query, args...)
 
 	return err
 }

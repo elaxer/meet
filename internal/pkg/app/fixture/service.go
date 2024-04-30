@@ -3,9 +3,9 @@ package fixture
 import (
 	"context"
 	"database/sql"
+	"meet/internal/pkg/app/database"
 	"meet/internal/pkg/app/model"
 	"meet/internal/pkg/app/repository"
-	"meet/internal/pkg/app/repository/transaction"
 )
 
 func LoadFixtures(
@@ -14,7 +14,7 @@ func LoadFixtures(
 	questionnaireRepository repository.QuestionnaireRepository,
 	coupleRepository repository.CoupleRepository,
 ) error {
-	ctx, tx, err := transaction.BeginTx(context.Background(), db)
+	ctx, tx, err := database.BeginTx(context.Background(), db)
 	if err != nil {
 		return err
 	}

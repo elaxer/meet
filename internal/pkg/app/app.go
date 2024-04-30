@@ -12,5 +12,3 @@ type UploadType string
 const (
 	UploadTypeImage UploadType = "image"
 )
-
-const LogFilename = "logs/log.log"

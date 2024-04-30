@@ -1,4 +1,4 @@
-package transaction
+package database
 
 import (
 	"context"
@@ -20,17 +20,11 @@ func BeginTx(ctx context.Context, db *sql.DB) (context.Context, *sql.Tx, error) 
 	return txCtx, tx, nil
 }
 
-func TxOrDB(ctx context.Context, db *sql.DB) Connection {
+func TxOrDB(ctx context.Context, db Connection) Connection {
 	tx, ok := ctx.Value(txKey).(*sql.Tx)
 	if ok {
 		return tx
 	}
 
 	return db
-}
-
-type Connection interface {
-	Exec(query string, args ...any) (sql.Result, error)
-	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
-	QueryRow(query string, args ...any) *sql.Row
 }

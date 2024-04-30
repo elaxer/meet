@@ -30,6 +30,6 @@ func (d *Direction) Validate() error {
 	return errs
 }
 
-func (d *Direction) NewReversed() Direction {
+func (d *Direction) NewBack() Direction {
 	return Direction{d.ToID, d.FromID}
 }

@@ -4,9 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"meet/internal/pkg/app/database"
 	"meet/internal/pkg/app/model"
 	"meet/internal/pkg/app/repository"
-	"meet/internal/pkg/app/repository/transaction"
 	"time"
 )
 
@@ -65,32 +65,28 @@ func (as *assessmentService) Assess(assessment *model.Assessment) error {
 		return ErrQuestionnairesIncompatible
 	}
 
-	reversedAssessment, err := as.assessmentRepository.Get(assessment.UsersDirection.NewReversed())
+	backAssessment, err := as.assessmentRepository.Get(assessment.UsersDirection.NewBack())
 	if err != nil && !errors.Is(err, repository.ErrNotFound) {
 		return err
 	}
 
-	if reversedAssessment == nil {
-		err := as.assessmentRepository.Add(context.Background(), assessment)
-
-		return err
+	if backAssessment == nil {
+		return as.assessmentRepository.Add(context.Background(), assessment)
 	}
 
-	ctx, tx, err := transaction.BeginTx(context.Background(), as.db)
+	ctx, tx, err := database.BeginTx(context.Background(), as.db)
 	if err != nil {
 		return err
 	}
 
 	assessment.IsMutual = true
-	if err := as.assessmentRepository.Remove(ctx, reversedAssessment); err != nil {
+	if err := as.assessmentRepository.Remove(ctx, backAssessment); err != nil {
 		tx.Rollback()
 
 		return err
 	}
 
-	couple := new(model.Couple)
-	couple.UsersDirection.FromID = assessment.UsersDirection.FromID
-	couple.UsersDirection.ToID = assessment.UsersDirection.ToID
+	couple := model.NewCouple(assessment.UsersDirection.FromID, assessment.UsersDirection.ToID)
 
 	if err := as.coupleRepository.Add(ctx, couple); err != nil {
 		tx.Rollback()
@@ -98,7 +94,5 @@ func (as *assessmentService) Assess(assessment *model.Assessment) error {
 		return err
 	}
 
-	tx.Commit()
-
-	return nil
+	return tx.Commit()
 }

@@ -61,7 +61,7 @@ func TestUserDirection_NewReversed(t *testing.T) {
 				FromID: tt.fields.FromUserID,
 				ToID:   tt.fields.ToUserID,
 			}
-			if got := ad.NewReversed(); !reflect.DeepEqual(got, tt.want) {
+			if got := ad.NewBack(); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("UserDirection.NewReversed() = %v, want %v", got, tt.want)
 			}
 		})

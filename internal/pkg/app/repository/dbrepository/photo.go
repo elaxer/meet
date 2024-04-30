@@ -1,27 +1,22 @@
-package repository
+package dbrepository
 
 import (
-	"database/sql"
+	"meet/internal/pkg/app/database"
 	"meet/internal/pkg/app/model"
+	"meet/internal/pkg/app/repository"
 )
 
 var photosTableName = "questionnaire_photos"
 
-type PhotoRepository interface {
-	GetByQuestionnaireID(questionnaireID int) ([]*model.Photo, error)
-	Add(photo *model.Photo) error
-	Remove(photo *model.Photo) error
+type photoRepository struct {
+	conn database.Connection
 }
 
-type photoDBRepository struct {
-	db *sql.DB
+func NewPhotoRepository(conn database.Connection) repository.PhotoRepository {
+	return &photoRepository{conn}
 }
 
-func NewPhotoDBRepository(db *sql.DB) PhotoRepository {
-	return &photoDBRepository{db}
-}
-
-func (pr *photoDBRepository) GetByQuestionnaireID(questionnaireID int) ([]*model.Photo, error) {
+func (pr *photoRepository) GetByQuestionnaireID(questionnaireID int) ([]*model.Photo, error) {
 	sb := newSelectBuilder()
 	query, args := sb.
 		Select("*").
@@ -33,7 +28,7 @@ func (pr *photoDBRepository) GetByQuestionnaireID(questionnaireID int) ([]*model
 
 	photos := make([]*model.Photo, 0)
 
-	rows, err := pr.db.Query(query, args...)
+	rows, err := pr.conn.Query(query, args...)
 	if err != nil {
 		return photos, err
 	}
@@ -52,7 +47,7 @@ func (pr *photoDBRepository) GetByQuestionnaireID(questionnaireID int) ([]*model
 	return photos, nil
 }
 
-func (pr *photoDBRepository) Add(photo *model.Photo) error {
+func (pr *photoRepository) Add(photo *model.Photo) error {
 	photo.BeforeAdd()
 
 	if err := photo.Validate(); err != nil {
@@ -67,7 +62,7 @@ func (pr *photoDBRepository) Add(photo *model.Photo) error {
 		Build()
 
 	var id int
-	row := pr.db.QueryRow(query, args...)
+	row := pr.conn.QueryRow(query, args...)
 	if err := row.Scan(&id); err != nil {
 		return err
 	}
@@ -77,7 +72,7 @@ func (pr *photoDBRepository) Add(photo *model.Photo) error {
 	return nil
 }
 
-func (pr *photoDBRepository) Remove(photo *model.Photo) error {
+func (pr *photoRepository) Remove(photo *model.Photo) error {
 	if err := photo.Validate(); err != nil {
 		return err
 	}
@@ -85,7 +80,7 @@ func (pr *photoDBRepository) Remove(photo *model.Photo) error {
 	db := newDeleteBuilder()
 	query, args := db.DeleteFrom(photosTableName).Where(db.Equal("id", photo.ID)).Build()
 
-	_, err := pr.db.Exec(query, args...)
+	_, err := pr.conn.Exec(query, args...)
 
 	return err
 }
